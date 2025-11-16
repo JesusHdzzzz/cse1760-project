@@ -1,21 +1,37 @@
-import cv2
-import numpy as np
-from skimage.util import view_as_blocks
+from PIL import Image
 import matplotlib.pyplot as plt
+import numpy as np
 
-img = cv2.imread("../images/5Train.png", cv2.IMREAD_GRAYSCALE)
+# Load and convert to grayscale
+img = Image.open("../images/5Train.png").convert("L")
+img_np = np.array(img)
 
-tile_size = 15
-blocks = view_as_blocks(img, block_shape=(tile_size, tile_size))
+H, W = img_np.shape
+print(img_np.shape)
+# The grid seems roughly ~64x64; infer exact size by inspecting approximate cell size
+rows = 64
+cols = 64
+digit_h = H // rows
+digit_w = W // cols
 
-digits = blocks.reshape(-1, tile_size, tile_size)
+# Extract patches
+patches = []
+for r in range(rows):
+    for c in range(cols):
+        patch = img_np[r*digit_h:(r+1)*digit_h, c*digit_w:(c+1)*digit_w]
+        patches.append(patch)
 
-print("Total digits:", len(digits))
-print("Each digit shape:", digits[0].shape)
+# Show first N digits
+N = 100
+grid = int(np.sqrt(N))
 
-plt.figure(figsize=(6,6))
-for i in range(25):
-    plt.subplot(5,5,i+1)
-    plt.imshow(digits[i], cmap='gray')
-    plt.axis("off")
+fig, axes = plt.subplots(grid, grid, figsize=(8, 8))
+idx = 0
+for r in range(grid):
+    for c in range(grid):
+        axes[r, c].imshow(patches[idx], cmap='gray')
+        axes[r, c].axis('off')
+        idx += 1
+
+plt.tight_layout()
 plt.show()
