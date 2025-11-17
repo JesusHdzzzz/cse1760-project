@@ -40,3 +40,9 @@ with the best average accuracy over the 5 runs in 5 fold cross validation. The C
 the best average accuracy in cross validation will be our final model, which we will then train again on 
 our training data and finally testing it with our test data set. We then print out the accuracy given by the test 
 run.
+
+Sources:
+https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LogisticRegression.html
+https://www.ml-science.com/masking
+https://stackoverflow.com/questions/47216388/efficiently-creating-masks-numpy-python
+https://developers.google.com/machine-learning/crash-course/overfitting/regularization
