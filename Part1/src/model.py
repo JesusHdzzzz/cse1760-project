@@ -7,7 +7,7 @@ from sklearn.preprocessing import StandardScaler
 # Load and filter data
 mat_data = scipy.io.loadmat('../images/MNISTmini.mat')
 images = mat_data['train_fea1']
-labels = mat_data['train_gnd1']
+labels = mat_data['train_gnd1'].flatten()
 
 mask = (labels == 5) | (labels == 6)
 X = images[mask]
