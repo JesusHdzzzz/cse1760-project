@@ -7,7 +7,7 @@ from sklearn.preprocessing import StandardScaler
 # Load and filter data
 mat_data = scipy.io.loadmat('../images/MNISTmini.mat')
 images = mat_data['train_fea1']
-labels = mat_data['train_gnd1'].flatten()
+labels = mat_data['train_gnd1']
 
 mask = (labels == 5) | (labels == 6)
 X = images[mask]
@@ -22,7 +22,6 @@ print(f"Total images in dataset: {total_images}")
 print(f"Images of digit 5: {total_5} ({total_5/total_images*100:.1f}%)")
 print(f"Images of digit 6: {total_6} ({total_6/total_images*100:.1f}%)")
 print(f"Total 5s + 6s: {total_5 + total_6} ({(total_5 + total_6)/total_images*100:.1f}% of dataset)")
-# Split and scale
 
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 scaler = StandardScaler()
