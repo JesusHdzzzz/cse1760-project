@@ -5,7 +5,7 @@
 echo "Installing required Python packages..."
 
 # Update pip to the latest version
-pip3 install --upgrade pip
+pip3 install --upgrade pip3
 
 # Install core packages from your import statements
 pip3 install scipy
