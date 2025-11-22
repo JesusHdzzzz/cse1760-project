@@ -53,72 +53,93 @@ on the full training data and evaluate it on the test set. The script then print
 
 ## Random Forest Model Explanation
 
-For our second approach to binary classification, we implemented a **Random Forest** model using scikit-learn’s `RandomForestClassifier`. Since Random Forests operate on raw feature values without requiring normalization or linear transformations, the preprocessing steps differed slightly from the logistic regression pipeline, but the overall flow of loading, filtering, and splitting the data remained consistent.
+For our second classifier, we implemented a **Random Forest** model using scikit-learn’s `RandomForestClassifier`. Although the preprocessing steps were similar to those used for logistic regression, Random Forests have different requirements and naturally handle raw, unscaled input features.
 
-As before, we began by loading the MNISTmini dataset from the `.mat` file and inspecting its structure. The dataset includes `train_fea1` and `train_gnd1`, each containing **60,000** training images and their corresponding labels, as well as `test_fea1` and `test_gnd1`, which contain **10,000** test images. Each feature vector represents a flattened 10×10 grayscale digit image, giving us 100-dimensional input vectors. Labels were again stored in `(N, 1)` MATLAB format, so we flattened them for compatibility with scikit-learn.
+After loading the MNISTmini `.mat` file, we again flattened the label arrays to convert them from MATLAB’s `(N, 1)` format to a Python-friendly 1D vector. The feature matrix `train_fea1` contains **60,000** training samples, each represented by a flattened 10×10 grayscale image (100 features). Because the dataset is sorted by label (all digit-1 samples come first, then digit-2, etc.), the first 3000 samples do **not** contain digits 5 or 6. Thus, the assignment’s suggestion to use “images 1–3000” cannot be applied directly for this binary pair.
 
-Because the dataset is sorted by label (i.e., all images of digit 1 appear first, then all digit 2, etc.), the first 3000 samples contain only digit **1**. This makes the assignment’s suggested “use images 1–3000” approach incompatible with a binary task involving digits 5 and 6. To properly construct meaningful and balanced splits, we instead extracted **1500 samples of digit 5** and **1500 samples of digit 6** from the full dataset. From each set of 1500 samples, we created:
+To construct balanced and meaningful splits, we extracted **2000 samples of digit 5** and **2000 samples of digit 6** from the full dataset. From each digit, we allocated:
 
-- **500 training samples**
-- **500 validation samples**
-- **500 test samples**
+- **1000 samples for training**  
+- **1000 samples for validation**  
+- **1000 samples for testing**  
 
-This produced perfectly balanced splits of 1000 images each for training, validation, and testing.  
-We also mapped digit **5 → 0** and digit **6 → 1** for binary classification.
+This produced class-balanced splits of:
 
----
+- **Training set:** 2000 samples  
+- **Validation set:** 2000 samples  
+- **Test set:** 2000 samples  
 
-### **How Random Forests Work**
-
-A Random Forest is an ensemble learning method that builds many decision trees and combines their predictions through **majority voting** (for classification). Each tree is trained on:
-
-- a randomly sampled subset of the training data (bagging), and  
-- a randomly selected subset of the features at each split (`max_features='sqrt'` by default).
-
-This randomness reduces overfitting and encourages diversity among the trees, resulting in a robust and high-performing model. Unlike logistic regression, Random Forests can model nonlinear decision boundaries and complex feature interactions automatically.
+Just as with logistic regression, we mapped digit **5 → 0** and digit **6 → 1** to form binary labels.
 
 ---
 
-### **Cross-Validation and Hyperparameter Search**
+### How Random Forests Operate
 
-Random Forests have several hyperparameters, but the one with the greatest impact on performance is the **number of trees**, `n_estimators`. Too few trees may lead to underfitting, while too many trees can increase computation time without significant accuracy improvements.
+A Random Forest is an ensemble machine learning algorithm that builds many decision trees and aggregates their predictions through **majority voting**. Each tree is trained on:
 
-We tested the following set of candidate tree counts:
-{10, 50, 100, 200, 500}
+1. A random subset of the training data (**bootstrap sampling**), and  
+2. A random subset of features at each decision point (`max_features='sqrt'` by default).
 
-
-For each of these values, we trained and evaluated the Random Forest using **5-fold cross-validation** on the 1000-sample training set. Cross-validation ensures that the model’s performance is stable and not dependent on a particular random train/validation split.
-
-Our results showed that **50 trees** yielded the highest average cross-validation accuracy (**98.10%**), outperforming both smaller and larger ensembles. This suggests that the dataset is small enough that adding more trees provides diminishing returns.
+These forms of randomness reduce correlation between trees and prevent overfitting, making Random Forests much more robust than individual decision trees. Furthermore, they naturally learn nonlinear relationships and feature interactions, giving them strong classification power even without feature scaling.
 
 ---
 
-### **Final Model Training and Evaluation**
+### Cross-Validation and Hyperparameter Tuning
 
-After selecting the best `n_estimators` value, we retrained the model on the combined training and validation sets (totaling 2000 samples) and evaluated it on the final 1000-sample test set.
+The main hyperparameter we tuned was **`n_estimators`**, the number of trees in the ensemble. Larger forests tend to perform better but take more time to train, and after a certain point provide diminishing returns.
 
-The resulting performance was:
-
-- **Test accuracy:** **98%**
-- **Confusion matrix:**
-- [[489 11] [ 9 491]]
+We evaluated the following set of candidate values using **5-fold cross-validation**:
+n_list = [10, 50, 100, 200, 500]
 
 
+The cross-validation accuracies were:
 
-This means:
-- Only **11** digit-5 images were incorrectly predicted as digit-6
-- Only **9** digit-6 images were incorrectly predicted as digit-5
-- Total misclassifications: **20 out of 1000** (2% error rate)
+| Trees | CV Accuracy |
+|------|-------------|
+| 10   | 0.9710      |
+| 50   | 0.9770      |
+| 100  | 0.9775      |
+| 200  | 0.9800      |
+| 500  | **0.9820**  |
 
-The classification report confirmed excellent precision, recall, and F1-scores for both classes, indicating that the Random Forest learned a stable and symmetric decision boundary between the two digits.
+The best-performing configuration used **500 trees**, achieving a cross-validation accuracy of **98.20%**.
 
 ---
 
-### **Summary**
+### Final Training and Evaluation
 
-The Random Forest classifier performed extremely well on the MNISTmini digit-5-vs-digit-6 classification task.  
-It matched the performance of the logistic regression model while benefiting from a nonlinear, ensemble-based approach that naturally handles complex decision boundaries. Its cross-validated hyperparameter selection ensured strong generalization, and the balanced train/validation/test splits allowed for a reliable comparison between the two methods.
+After selecting the optimal number of trees, we retrained the Random Forest on the combined **training + validation** sets (4000 samples total) and evaluated it on the **2000-sample test set**.
 
-Random Forests served as a highly effective second model for this part of the project, demonstrating the power of ensemble methods in classification tasks involving image data.
+The final test accuracy was:
+
+- **97.8%**
+
+The confusion matrix:
+[[983 17]
+[ 27 973]]
+
+
+From this we observe:
+
+- 17 digit-5 samples misclassified as digit 6  
+- 27 digit-6 samples misclassified as digit 5  
+- Only **44 errors** out of **2000** samples  
+- Both classes exhibit very similar performance, showing no significant class imbalance or bias  
+
+The classification report:
+
+- Precision: 0.97–0.98  
+- Recall: 0.97–0.98  
+- F1-score: 0.98 for both classes  
+
+demonstrates that the model performs strongly and symmetrically across both digits.
+
+---
+
+### Summary
+
+The Random Forest classifier produced excellent results on the MNISTmini digit-5-vs-6 binary classification task, achieving **97.8% test accuracy** and outperforming most smaller tree ensembles. Through cross-validation, we determined that a large forest of **500 trees** provided the highest accuracy and generalization performance. Random Forests offer strong nonlinear modeling capacity and robustness, making them a powerful complement to the more linear Logistic Regression approach.
+
+Both models performed well, but Random Forests benefited from their ability to capture more complex feature relationships in the digit data, while Logistic Regression maintained simplicity and interpretability.
 
 ---
