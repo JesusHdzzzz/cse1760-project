@@ -10,7 +10,7 @@ DIGIT_B = 6
 # ===================================
 
 # Load .mat file
-mat = scipy.io.loadmat("images/MNISTmini.mat")
+mat = scipy.io.loadmat("../images/MNISTmini.mat")
 
 X_all = mat['train_fea1']              # (60000, 100)
 y_all = mat['train_gnd1'].flatten()    # (60000,)
@@ -26,13 +26,7 @@ print(f"Found {len(idx_a)} samples of digit {DIGIT_A}")
 print(f"Found {len(idx_b)} samples of digit {DIGIT_B}")
 
 # We want at least 1500 per digit (500 train, 500 val, 500 test)
-needed_per_digit = 1500
-if len(idx_a) < needed_per_digit or len(idx_b) < needed_per_digit:
-    raise ValueError(
-        f"Not enough samples for one of the digits. "
-        f"Need {needed_per_digit} each, got {len(idx_a)} (digit {DIGIT_A}) "
-        f"and {len(idx_b)} (digit {DIGIT_B})."
-    )
+needed_per_digit = 4000
 
 # Take the first 1500 of each (you could also shuffle)
 idx_a = idx_a[:needed_per_digit]
@@ -40,9 +34,9 @@ idx_b = idx_b[:needed_per_digit]
 
 def split_indices(idx):
     """Split 1500 indices into 500 train, 500 val, 500 test."""
-    train_idx = idx[:500]
-    val_idx   = idx[500:1000]
-    test_idx  = idx[1000:1500]
+    train_idx = idx[:1000]
+    val_idx   = idx[1000:2000]
+    test_idx  = idx[2000:3000]
     return train_idx, val_idx, test_idx
 
 a_train, a_val, a_test = split_indices(idx_a)

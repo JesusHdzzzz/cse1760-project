@@ -23,7 +23,6 @@ print(f"Images of digit 5: {total_5} ({total_5/total_images*100:.1f}%)")
 print(f"Images of digit 6: {total_6} ({total_6/total_images*100:.1f}%)")
 print(f"Total 5s + 6s: {total_5 + total_6} ({(total_5 + total_6)/total_images*100:.1f}% of dataset)")
 
-
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 scaler = StandardScaler()
 X_train_scaled = scaler.fit_transform(X_train)
