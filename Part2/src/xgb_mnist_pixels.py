@@ -5,7 +5,13 @@ from sklearn.model_selection import StratifiedKFold, cross_val_score
 from xgboost import XGBClassifier
 from utils_mnist import load_mnist_mat, train_val_split
 
+import time
+
 def main():
+    total_start = time.perf_counter()
+
+    # ====== Load Data ======
+    load_start = time.perf_counter()
     X_all, y_all = load_mnist_mat(
         "images/MNIST.mat", 
         feature_key="train_fea", 
@@ -16,15 +22,16 @@ def main():
         feature_key="test_fea", 
         label_key="test_gnd"
     )
+    load_end = time.perf_counter()
 
     print(f"Train features: {X_all.shape}")
     print(f"Test features: {X_test.shape}")
 
     X_train, X_val, y_train, y_val = train_val_split(X_all, y_all)
-
     print(f"Train size: {X_train.shape[0]}")
     print(f"Val   size: {X_val.shape[0]}")
 
+    # ====== Cross-Validation (Hyperparameter Search) ======
     n_list = [50, 100, 200]
     depth_list = [4, 6, 8]
 
@@ -35,6 +42,8 @@ def main():
     skf = StratifiedKFold(n_splits=3, shuffle=True, random_state=42)
 
     print("\n=== XGBoost Cross-Validation (Pixel Features) ===")
+    cv_start = time.perf_counter()
+
     for n in n_list:
         for depth in depth_list:
             model = XGBClassifier(
@@ -61,14 +70,23 @@ def main():
                 best_model = model
                 best_params = (n, depth)
 
+    cv_end = time.perf_counter()
+
     print(f"\nBest: n_estimators={best_params[0]}, max_depth={best_params[1]} "
           f"(CV={best_score:.4f})")
 
+    # ====== Final Training ======
+    train_start = time.perf_counter()
     X_full = np.vstack([X_train, X_val])
     y_full = np.concatenate([y_train, y_val])
     best_model.fit(X_full, y_full)
+    train_end = time.perf_counter()
 
+    # ====== Final Evaluation ======
+    eval_start = time.perf_counter()
     y_pred = best_model.predict(X_test)
+    eval_end = time.perf_counter()
+
     test_acc = accuracy_score(y_test, y_pred)
     print(f"\nFinal Test Accuracy (pixel features): {test_acc:.4f}")
 
@@ -77,6 +95,16 @@ def main():
 
     print("Confusion Matrix:")
     print(confusion_matrix(y_test, y_pred))
+
+    total_end = time.perf_counter()
+
+    # ====== TIMING SUMMARY ======
+    print("\n===== TIMING SUMMARY (Pixels) =====")
+    print(f"Data loading time:       {load_end - load_start:.2f} sec")
+    print(f"Cross-validation time:   {cv_end - cv_start:.2f} sec")
+    print(f"Final training time:     {train_end - train_start:.2f} sec")
+    print(f"Evaluation time:         {eval_end - eval_start:.4f} sec")
+    print(f"TOTAL runtime:           {total_end - total_start:.2f} sec")
 
 if __name__ == "__main__":
     main()
