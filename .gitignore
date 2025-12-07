@@ -1,0 +1,6 @@
+# .gitignore (at repo root)
+/Part1/cse176
+/Part2/images/
+/Part2/src/__pycache__/
+/Part2/src/*.pyc
+__pycache__/
