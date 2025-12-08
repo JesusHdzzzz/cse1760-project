@@ -1,0 +1,16 @@
+## Planned GBM Experiments (Hyperparameter Grid Ideas)
+
+| ID | Name                         | ntrees | max_depth | learn_rate | sample_rate | col_sample_rate | min_rows | Notes |
+|----|------------------------------|--------|-----------|-----------:|------------:|----------------:|---------:|-------|
+| 1  | Baseline                     | 100    | 5         | 0.10       | 1.0         | 1.0             | 10       | Simple starting point (already ran). |
+| 2  | Shallow, many trees          | 500    | 4         | 0.05       | 1.0         | 1.0             | 10       | Tests underfitting vs stability. |
+| 3  | Deep, fewer trees            | 200    | 10        | 0.05       | 1.0         | 1.0             | 5        | More complex trees, checks overfitting. |
+| 4  | Deep, many trees             | 800    | 10        | 0.03       | 1.0         | 1.0             | 5        | Very strong learner, needs early stopping. |
+| 5  | Very deep, stronger regular. | 800    | 12        | 0.03       | 0.8         | 0.8             | 10       | High-capacity with subsampling + min_rows. |
+| 6  | Small LR, many trees         | 1000   | 8         | 0.01       | 0.9         | 0.9             | 5        | Slow learner; good test of `learn_rate`. |
+| 7  | Higher LR, fewer trees       | 200    | 8         | 0.10       | 0.8         | 0.8             | 10       | Aggressive learning, see if it overshoots. |
+| 8  | Row subsampling focus        | 500    | 8         | 0.05       | 0.7         | 1.0             | 5        | Tests effect of `sample_rate` only. |
+| 9  | Column subsampling focus     | 500    | 8         | 0.05       | 1.0         | 0.7             | 5        | Tests effect of `col_sample_rate` only. |
+| 10 | Strong subsampling both      | 800    | 8         | 0.05       | 0.7         | 0.7             | 5        | Max diversity; usually good for tabular data. |
+| 11 | Regularized via min_rows     | 500    | 8         | 0.05       | 0.9         | 0.9             | 20       | Forces leaves to have more data, smoother model. |
+| 12 | Compact model (fast)         | 150    | 6         | 0.07       | 0.9         | 0.9             | 10       | “Good enough” smaller model for speed. |
