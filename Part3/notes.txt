@@ -1,4 +1,6 @@
-## Planned GBM Experiments (Hyperparameter Grid Ideas)
+## Planned GBM Experiments (Hyperparameter Grid Ideas) - running on 3rd code cell
+
+Where it says "# ---- Manual GBM variant (gbm_variant_1) ----"
 
 | ID | Name                         | ntrees | max_depth | learn_rate | sample_rate | col_sample_rate | min_rows | Notes |
 |----|------------------------------|--------|-----------|-----------:|------------:|----------------:|---------:|-------|
@@ -14,3 +16,288 @@
 | 10 | Strong subsampling both      | 800    | 8         | 0.05       | 0.7         | 0.7             | 5        | Max diversity; usually good for tabular data. |
 | 11 | Regularized via min_rows     | 500    | 8         | 0.05       | 0.9         | 0.9             | 20       | Forces leaves to have more data, smoother model. |
 | 12 | Compact model (fast)         | 150    | 6         | 0.07       | 0.9         | 0.9             | 10       | “Good enough” smaller model for speed. |
+
+
+
+=== Best Tuned GBM (Grid Search): Validation Performance ===
+ModelMetricsRegression: gbm
+** Reported on test data. **
+
+MSE: 85.07859140163656
+RMSE: 9.223805689715963
+MAE: 5.0203285657367065
+RMSLE: 0.377566035888705
+Mean Residual Deviance: 85.07859140163656
+
+=== Best Tuned GBM (Grid Search): Test Performance ===
+ModelMetricsRegression: gbm
+** Reported on test data. **
+
+MSE: 91.10945400762134
+RMSE: 9.54512723894351
+MAE: 5.194156650961609
+RMSLE: 0.3816283547466119
+Mean Residual Deviance: 91.10945400762134
+
+1. Baseline
+
+=== GBM Variant 1 (manual config): Validation Performance ===
+ModelMetricsRegression: gbm
+** Reported on test data. **
+
+MSE: 114.35113479516781
+RMSE: 10.693509002903014
+MAE: 6.8773736310886955
+RMSLE: NaN
+Mean Residual Deviance: 114.35113479516781
+
+=== GBM Variant 1 (manual config): Test Performance ===
+ModelMetricsRegression: gbm
+** Reported on test data. **
+
+MSE: 130.7661342917119
+RMSE: 11.43530210758386
+MAE: 7.329962215328263
+RMSLE: NaN
+Mean Residual Deviance: 130.7661342917119
+
+2. Shallow, many trees
+
+ModelMetricsRegression: gbm
+** Reported on test data. **
+
+MSE: 110.65503294120147
+RMSE: 10.519269601127327
+MAE: 6.682695503827137
+RMSLE: NaN
+Mean Residual Deviance: 110.65503294120147
+
+=== GBM Variant 1 (manual config): Test Performance ===
+ModelMetricsRegression: gbm
+** Reported on test data. **
+
+MSE: 126.56644504980714
+RMSE: 11.25017533418067
+MAE: 7.073546839945515
+RMSLE: NaN
+Mean Residual Deviance: 126.56644504980714
+
+3. Deep, fewer trees
+
+=== GBM Variant 1 (manual config): Validation Performance ===
+ModelMetricsRegression: gbm
+** Reported on test data. **
+
+MSE: 91.7882062585969
+RMSE: 9.580616173221683
+MAE: 5.328509737845169
+RMSLE: NaN
+Mean Residual Deviance: 91.7882062585969
+
+=== GBM Variant 1 (manual config): Test Performance ===
+ModelMetricsRegression: gbm
+** Reported on test data. **
+
+MSE: 95.98702883819506
+RMSE: 9.797297016942737
+MAE: 5.514143491953848
+RMSLE: 0.40074237469548046
+Mean Residual Deviance: 95.98702883819506
+
+4. Deep, many trees
+
+=== GBM Variant 1 (manual config): Validation Performance ===
+ModelMetricsRegression: gbm
+** Reported on test data. **
+
+MSE: 91.93809257471189
+RMSE: 9.588435355922877
+MAE: 5.231764815148115
+RMSLE: NaN
+Mean Residual Deviance: 91.93809257471189
+
+=== GBM Variant 1 (manual config): Test Performance ===
+ModelMetricsRegression: gbm
+** Reported on test data. **
+
+MSE: 93.48002688275191
+RMSE: 9.66850696244006
+MAE: 5.345524731556652
+RMSLE: NaN
+Mean Residual Deviance: 93.48002688275191
+
+5. Very deep, stronger regular (BEST)
+
+=== GBM Variant 1 (manual config): Validation Performance ===
+ModelMetricsRegression: gbm
+** Reported on test data. **
+
+MSE: 84.76604186830303
+RMSE: 9.206847553223797
+MAE: 4.98812160520563
+RMSLE: 0.3815474224146949
+Mean Residual Deviance: 84.76604186830303
+
+=== GBM Variant 1 (manual config): Test Performance ===
+ModelMetricsRegression: gbm
+** Reported on test data. **
+
+MSE: 90.93101501261914
+RMSE: 9.535775532835236
+MAE: 5.191092455933854
+RMSLE: 0.3832104753363808
+Mean Residual Deviance: 90.93101501261914
+
+6. Small LR, many trees
+
+=== GBM Variant 1 (manual config): Validation Performance ===
+ModelMetricsRegression: gbm
+** Reported on test data. **
+
+MSE: 90.4292185816191
+RMSE: 9.509427878774785
+MAE: 5.592691193791021
+RMSLE: 0.428439634169597
+Mean Residual Deviance: 90.4292185816191
+
+=== GBM Variant 1 (manual config): Test Performance ===
+ModelMetricsRegression: gbm
+** Reported on test data. **
+
+MSE: 97.79870034214616
+RMSE: 9.889322542123205
+MAE: 5.826224735140605
+RMSLE: 0.42946848795981596
+Mean Residual Deviance: 97.79870034214616
+
+7. Higher LR, fewer trees
+
+=== GBM Variant 1 (manual config): Validation Performance ===
+ModelMetricsRegression: gbm
+** Reported on test data. **
+
+MSE: 91.49473188605006
+RMSE: 9.565287862163379
+MAE: 5.644191763228555
+RMSLE: NaN
+Mean Residual Deviance: 91.49473188605006
+
+=== GBM Variant 1 (manual config): Test Performance ===
+ModelMetricsRegression: gbm
+** Reported on test data. **
+
+MSE: 98.5344615930079
+RMSE: 9.926452618786225
+MAE: 5.84946965348969
+RMSLE: NaN
+Mean Residual Deviance: 98.5344615930079
+
+8. Row subsampling focus
+
+=== GBM Variant 1 (manual config): Validation Performance ===
+ModelMetricsRegression: gbm
+** Reported on test data. **
+
+MSE: 88.72243456738013
+RMSE: 9.419258705831375
+MAE: 5.352213598185788
+RMSLE: NaN
+Mean Residual Deviance: 88.72243456738013
+
+=== GBM Variant 1 (manual config): Test Performance ===
+ModelMetricsRegression: gbm
+** Reported on test data. **
+
+MSE: 93.25689783158317
+RMSE: 9.65696110749045
+MAE: 5.504111165386398
+RMSLE: 0.41372027970492276
+Mean Residual Deviance: 93.25689783158317
+
+9. Column subsampling focus
+
+=== GBM Variant 1 (manual config): Validation Performance ===
+ModelMetricsRegression: gbm
+** Reported on test data. **
+
+MSE: 86.92616556434189
+RMSE: 9.323420271785558
+MAE: 5.222630328150416
+RMSLE: 0.3998071394263899
+Mean Residual Deviance: 86.92616556434189
+
+=== GBM Variant 1 (manual config): Test Performance ===
+ModelMetricsRegression: gbm
+** Reported on test data. **
+
+MSE: 93.66634787728104
+RMSE: 9.678137624423464
+MAE: 5.440744730538781
+RMSLE: 0.395810289431508
+Mean Residual Deviance: 93.66634787728104
+
+10. Strong subsampling both
+
+=== GBM Variant 1 (manual config): Validation Performance ===
+ModelMetricsRegression: gbm
+** Reported on test data. **
+
+MSE: 86.22803292746424
+RMSE: 9.285905067760721
+MAE: 5.170443614389118
+RMSLE: NaN
+Mean Residual Deviance: 86.22803292746424
+
+=== GBM Variant 1 (manual config): Test Performance ===
+ModelMetricsRegression: gbm
+** Reported on test data. **
+
+MSE: 91.52831535029598
+RMSE: 9.567043187437589
+MAE: 5.366661447314896
+RMSLE: NaN
+Mean Residual Deviance: 91.52831535029598
+
+11. Regularized via min_rows
+
+=== GBM Variant 1 (manual config): Validation Performance ===
+ModelMetricsRegression: gbm
+** Reported on test data. **
+
+MSE: 89.75114355328897
+RMSE: 9.47370801499017
+MAE: 5.508592454233012
+RMSLE: NaN
+Mean Residual Deviance: 89.75114355328897
+
+=== GBM Variant 1 (manual config): Test Performance ===
+ModelMetricsRegression: gbm
+** Reported on test data. **
+
+MSE: 96.85185283572888
+RMSE: 9.84133389514495
+MAE: 5.7233396949748165
+RMSLE: 0.4223308596827402
+Mean Residual Deviance: 96.85185283572888
+
+12. Compact model (fast)
+
+=== GBM Variant 1 (manual config): Validation Performance ===
+ModelMetricsRegression: gbm
+** Reported on test data. **
+
+MSE: 103.0828839281498
+RMSE: 10.152974142001437
+MAE: 6.3030748093834665
+RMSLE: NaN
+Mean Residual Deviance: 103.0828839281498
+
+=== GBM Variant 1 (manual config): Test Performance ===
+ModelMetricsRegression: gbm
+** Reported on test data. **
+
+MSE: 116.89347745165155
+RMSE: 10.811728698577834
+MAE: 6.703816220792203
+RMSLE: NaN
+Mean Residual Deviance: 116.89347745165155
