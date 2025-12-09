@@ -11,6 +11,15 @@ warnings.filterwarnings('ignore', category=FutureWarning)
 # Load the original dataset
 df = pd.read_csv("data/healthcare-dataset-stroke-data.csv")
 
+#bmi_median = df['bmi'].median()
+#df['bmi'].fillna(bmi_median, inplace=True)
+
+# Drop rows where 'bmi' is missing
+df.dropna(subset=['bmi'], inplace=True)
+
+# Drop the 'Other' gender row
+df = df[df['gender'] != 'Other']
+
 # --- 2. H2O SETUP AND DATA LOADING ---
 
 # Initialize H2O cluster
@@ -84,6 +93,15 @@ best_gbm = grid_perf.models[0]
 
 # Evaluate the best model on the unseen test set
 performance = best_gbm.model_performance(test_data=test)
+
+# --- 6. MODEL EVALUATION AND SELECTION (Continued) ---
+
+# Get the Feature Importance for the best model
+importance_df = best_gbm.varimp(use_pandas=True)
+
+print("\n--- Feature Importance (Top Predictors) ---")
+# Display the top features and their relative importance
+print(importance_df.head(10).to_markdown(index=False, numalign="left", stralign="left"))
 
 # Print final results
 print(f"\n--- Best Model Hyperparameters ---")
