@@ -498,3 +498,95 @@ Summary from supercon_full_experiments.py
 14      GBM Manual 12: Compact model (fast) (ID 12)   10.152974   6.303075  10.811729  6.703816        1.779909     150          6        0.07          0.9              0.9        10
 15         GBM Manual 2: Shallow, many trees (ID 2)   10.519270   6.682696  11.250175  7.073547        7.825186     500          4        0.05          1.0              1.0        10
 16                              GBM Baseline (ID 1)   10.693509   6.877374  11.435302  7.329962        1.789592     100          5        0.10          1.0              1.0        10
+
+Summary from run_superconductivity_models.py
+
+===== Model Comparison Summary =====
+         experiment_name        cv_RMSE   cv_MAE   test_RMSE   test_MAE   train_time_sec   ntrees   max_depth   learn_rate   sample_rate   col_sample_rate   min_rows   n_params
+0        H2O GBM (Full)          9.4183   5.3780      8.8289     5.1251          40.7403    500.0        8.0        0.05          0.8              0.8         5.0      48823
+1   H2O Random Forest             9.7518   5.6236      9.2194     5.3503         217.0345    500.0        20.0        N/A           0.8              0.8         5.0     963397
+2      SVR (RBF + PCA 50)        14.9443   9.1151     14.4189     8.7580          22.2509      N/A         N/A        N/A            N/A               N/A         N/A     828240
+3        H2O GLM (Linear)        17.8707  13.5830     17.6749    13.4082           2.6023      N/A         N/A        N/A            N/A               N/A         N/A         82
+
+Summary from new run_superconductivity_models.py version
+
+====================== MODEL COMPARISON (Sorted by Test RMSE) ======================
+                        model_name              algorithm    cv_rmse  test_rmse     cv_mae   test_mae  n_params  n_trees  train_time_sec                                notes
+0   GBM_VeryDeep_StrongRegular_ID5              GBM_sweep   9.387606   8.722747   5.194025   4.869640    154356    800.0       87.513724                                     
+1                          H2O_GBM                    GBM   9.418285   8.828913   5.378000   5.125130     48823    500.0       40.762553                                     
+2       GBM_StrongSubsampling_ID10              GBM_sweep   9.397730   8.829993   5.309198   5.069591     73956    800.0       54.683158                                     
+3           GBM_ColSubsampling_ID9              GBM_sweep   9.437313   8.884047   5.375641   5.156845     47585    500.0       40.910616                                     
+4           GBM_Deep_ManyTrees_ID4              GBM_sweep   9.556122   8.896479   5.319660   5.091122    104625    560.0       65.582003                                     
+5          GBM_Deep_FewerTrees_ID3              GBM_sweep   9.630900   8.930458   5.452263   5.197162     45164    200.0       30.189330                                     
+6           GBM_RowSubsampling_ID8              GBM_sweep   9.470983   8.958749   5.423870   5.207333     46174    500.0       43.114455                                     
+7        GBM_HighLR_FewerTrees_ID7              GBM_sweep   9.668325   9.092212   5.670200   5.432023     15666    200.0       20.486852                                     
+8             GBM_Reg_MinRows_ID11              GBM_sweep   9.628454   9.105844   5.621602   5.410557     30073    500.0       40.836224                                     
+9        GBM_SmallLR_ManyTrees_ID6              GBM_sweep   9.612415   9.136206   5.700515   5.534838    117849   1000.0       82.172448                                     
+10                          H2O_RF           RandomForest   9.751779   9.219407   5.623556   5.350259    963397    500.0      219.656855  very_large_model,very_slow_training
+11           GBM_Compact_Fast_ID12              GBM_sweep  10.363667  10.107317   6.475930   6.413636      6240    150.0       14.035823                                     
+12       GBM_Shallow_ManyTrees_ID2              GBM_sweep  10.787570  10.619564   6.854068   6.853285      7317    500.0       25.651416                                     
+13                GBM_Baseline_ID1              GBM_sweep  10.931915  10.730998   7.044464   7.050939      2507    100.0        7.970552                                     
+14                         SVR_PCA           SVR(RBF)+PCA  14.944278  14.418936   9.115104   8.758011    828240      NaN       25.169873     very_high_error,very_large_model
+15                         H2O_GLM  LinearRegression(GLM)  17.870723  17.674896  13.582972  13.408205        82      NaN        3.135192                      very_high_error
+====================================================================================
+
+Notes about these results ^^:
+- GLM performed the worse and ran into a "max iterations 31!" warning during training, which makes sense since it's a 
+linear model looking for a solution in a non-linear problem.
+- Random Forest had way too many features, almost a million, that's around 20x more than the base GBM model and it was 5x 
+slower as well. This is a clear example that more trees doesn't necessarily mean better results. It most likely overfitted 
+during training.
+- SVR with PCA, performed worse than GBM and RF. Probably doesn't work very well with such high dimensionality from the dataset. 
+Since our dataset contains over 21,000 samples and the complexity is quadratic, it reaches a point where there's too much data to be saved
+in RAM. Overall, our dataset is so big SVR (RBF Kernel) struggles fitting the data cleanly. 
+
+I will run ID5 "GBM_VeryDeep_StrongRegular" again and tweak Hyperparameters to see if I can get faster and better results.
+
+===== Building final summary table (GBM base + sweep) =====
+      experiment  valid_RMSE  valid_MAE  test_rmse  test_mae  train_time_sec  n_trees  max_depth  learn_rate  sample_rate  col_sample_rate  min_rows  n_params
+0   GBM_n800_d11    9.353175   5.225667   8.701858  4.911562       72.801971      800       11.0        0.03          0.8              0.8        10    124306
+1   GBM_n700_d11    9.357677   5.247294   8.711788  4.941400       67.290985      700       11.0        0.03          0.8              0.8        10    110638
+2   GBM_n800_d10    9.349486   5.259132   8.714611  5.000508       66.681718      800       10.0        0.03          0.8              0.8        10    101444
+3   GBM_n800_d12    9.387606   5.194025   8.722747  4.869640       82.262732      800       12.0        0.03          0.8              0.8        10    154356
+4   GBM_n700_d12    9.384953   5.211309   8.726258  4.892069       74.699350      700       12.0        0.03          0.8              0.8        10    137016
+5   GBM_n600_d12    9.387363   5.230574   8.735288  4.918195       69.105739      600       12.0        0.03          0.8              0.8        10    120514
+6   GBM_n600_d11    9.365266   5.271230   8.738095  4.978409       64.128143      600       11.0        0.03          0.8              0.8        10     97743
+7   GBM_n700_d10    9.367268   5.294229   8.741757  5.042474       62.718960      700       10.0        0.03          0.8              0.8        10     89892
+8   GBM_n500_d12    9.396070   5.257332   8.762345  4.956132       64.666366      500       12.0        0.03          0.8              0.8        10    105485
+9   GBM_n600_d10    9.388291   5.333194   8.769550  5.091805       57.653268      600       10.0        0.03          0.8              0.8        10     78877
+10  GBM_n500_d11    9.382214   5.301326   8.780153  5.021293       57.616376      500       11.0        0.03          0.8              0.8        10     85800
+11   GBM_n800_d9    9.390258   5.340266   8.805403  5.100737       59.456543      800        9.0        0.03          0.8              0.8        10     78949
+12  GBM_n500_d10    9.416965   5.377632   8.825882  5.157239       51.011491      500       10.0        0.03          0.8              0.8        10     68390
+13  H2O_GBM_Base    9.418285   5.378000   8.828913  5.125130       39.398304      500        8.0        0.05          0.8              0.8         5     48823
+14   GBM_n700_d9    9.415660   5.384876   8.841752  5.159305       56.973970      700        9.0        0.03          0.8              0.8        10     69266
+15   GBM_n600_d9    9.456359   5.440260   8.887069  5.218295       52.073334      600        9.0        0.03          0.8              0.8        10     60531
+16   GBM_n500_d9    9.496477   5.499711   8.967154  5.298316       45.476267      500        9.0        0.03          0.8              0.8        10     52937
+==========================================================
+
+Notes ^^:
+- GBM with 800 trees and depth of 11 seems to be the best model I've run so far compared to the other ones. I will try to experiment
+with other Hyperparameters, manipulating dataset, and/or stopping early to see if we can get a more accurate model.
+
+===== Building final summary table (GBM base + sweep) EARLY STOPPING =====
+      experiment  valid_RMSE  valid_MAE  test_rmse  test_mae  train_time_sec  n_trees  max_depth  learn_rate  sample_rate  col_sample_rate  min_rows  n_params
+0   GBM_n800_d11    9.372019   5.285202   8.757217  4.995664       55.421425      551       11.0        0.03          0.8              0.8        10     91738
+1   GBM_n700_d11    9.372019   5.285202   8.757217  4.995664       58.238215      551       11.0        0.03          0.8              0.8        10     91738
+2   GBM_n800_d10    9.375246   5.310766   8.757401  5.071927       56.114863      642       10.0        0.03          0.8              0.8        10     83374
+3   GBM_n700_d10    9.376835   5.315238   8.763901  5.080841       57.453958      630       10.0        0.03          0.8              0.8        10     82011
+4   GBM_n600_d11    9.374421   5.288776   8.764158  5.004190       57.446693      539       11.0        0.03          0.8              0.8        10     90264
+5   GBM_n700_d12    9.388606   5.257996   8.766787  4.961228       59.810644      490       12.0        0.03          0.8              0.8        10    104046
+6   GBM_n800_d12    9.388606   5.257996   8.766787  4.961228       58.084919      490       12.0        0.03          0.8              0.8        10    104046
+7   GBM_n600_d12    9.390412   5.260478   8.771406  4.965062       62.436094      479       12.0        0.03          0.8              0.8        10    102413
+8   GBM_n500_d12    9.395663   5.266390   8.778366  4.973413       60.075531      459       12.0        0.03          0.8              0.8        10     99221
+9   GBM_n500_d11    9.382214   5.301326   8.780153  5.021293       56.523228      500       11.0        0.03          0.8              0.8        10     85800
+10  GBM_n600_d10    9.390696   5.338634   8.783258  5.104414       54.993020      583       10.0        0.03          0.8              0.8        10     76862
+11   GBM_n800_d9    9.397286   5.356023   8.821548  5.125503       57.644526      760        9.0        0.03          0.8              0.8        10     74999
+12  GBM_n500_d10    9.416965   5.377632   8.825882  5.157239       51.186113      500       10.0        0.03          0.8              0.8        10     68390
+13  H2O_GBM_Base    9.422826   5.401873   8.839749  5.157440       37.881779      458        8.0        0.05          0.8              0.8         5     45016
+14   GBM_n700_d9    9.419321   5.393579   8.852707  5.170919       54.616793      680        9.0        0.03          0.8              0.8        10     67621
+15   GBM_n600_d9    9.456359   5.440260   8.887069  5.218295       51.052400      600        9.0        0.03          0.8              0.8        10     60531
+16   GBM_n500_d9    9.496477   5.499711   8.967154  5.298316       45.494767      500        9.0        0.03          0.8              0.8        10     52937
+==========================================================
+
+Notes from these results ^^:
+- Despite stopping early the results still came back to be worse than when we let the model reach the max amount of trees.
