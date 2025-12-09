@@ -1,20 +1,20 @@
 #!/usr/bin/env python3
 """
-Unified Experiments for Superconductivity Dataset
+Unified Experiments for Superconductivity Dataset (Extended)
 
 Models:
-  - H2O GBM
+  - H2O GBM (base config)
   - H2O Random Forest
   - H2O GLM (linear regression with regularization)
   - Scikit-learn SVR (RBF) with PCA
 
-Features:
-  - IQR-based outlier removal on target (critical_temp)
-  - Shared train/test split for all models
-  - 5-fold cross-validation
+Extras:
+  - Optional GBM hyperparameter sweep (manual configs from earlier experiments)
+  - 5-fold cross-validation for all models
   - RMSE & MAE on CV and test
   - Approximate parameter / complexity counts
-  - Results saved to CSV and printed sorted by test RMSE
+  - Automatic anomaly tagging (notes column)
+  - Results saved to CSV and printed sorted by Test RMSE
 """
 
 import argparse
@@ -24,7 +24,7 @@ from typing import Dict, Any, List
 import numpy as np
 import pandas as pd
 
-from sklearn.model_selection import train_test_split, KFold, cross_val_score
+from sklearn.model_selection import KFold, train_test_split, cross_val_score
 from sklearn.metrics import mean_squared_error, mean_absolute_error
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
@@ -37,6 +37,133 @@ from h2o.estimators import (
     H2ORandomForestEstimator,
     H2OGeneralizedLinearEstimator,
 )
+
+# ------------------------------------------------------------------------
+# GBM sweep configurations (based on your earlier manual experiments)
+# ------------------------------------------------------------------------
+
+GBM_SWEEP_CONFIGS = [
+    # Original Baseline (ID 1)
+    {
+        "name": "GBM_Baseline_ID1",
+        "ntrees": 100,
+        "max_depth": 5,
+        "learn_rate": 0.10,
+        "sample_rate": 1.0,
+        "col_sample_rate": 1.0,
+        "min_rows": 10,
+    },
+    # Shallow, many trees (ID 2)
+    {
+        "name": "GBM_Shallow_ManyTrees_ID2",
+        "ntrees": 500,
+        "max_depth": 4,
+        "learn_rate": 0.05,
+        "sample_rate": 1.0,
+        "col_sample_rate": 1.0,
+        "min_rows": 10,
+    },
+    # Deep, fewer trees (ID 3)
+    {
+        "name": "GBM_Deep_FewerTrees_ID3",
+        "ntrees": 200,
+        "max_depth": 10,
+        "learn_rate": 0.05,
+        "sample_rate": 1.0,
+        "col_sample_rate": 1.0,
+        "min_rows": 5,
+    },
+    # Deep, many trees (ID 4)
+    {
+        "name": "GBM_Deep_ManyTrees_ID4",
+        "ntrees": 800,
+        "max_depth": 10,
+        "learn_rate": 0.03,
+        "sample_rate": 1.0,
+        "col_sample_rate": 1.0,
+        "min_rows": 5,
+    },
+    # Very deep, strong regular (ID 5)
+    {
+        "name": "GBM_VeryDeep_StrongRegular_ID5",
+        "ntrees": 800,
+        "max_depth": 12,
+        "learn_rate": 0.03,
+        "sample_rate": 0.8,
+        "col_sample_rate": 0.8,
+        "min_rows": 10,
+    },
+    # Small LR, many trees (ID 6)
+    {
+        "name": "GBM_SmallLR_ManyTrees_ID6",
+        "ntrees": 1000,
+        "max_depth": 8,
+        "learn_rate": 0.01,
+        "sample_rate": 0.9,
+        "col_sample_rate": 0.9,
+        "min_rows": 5,
+    },
+    # Higher LR, fewer trees (ID 7)
+    {
+        "name": "GBM_HighLR_FewerTrees_ID7",
+        "ntrees": 200,
+        "max_depth": 8,
+        "learn_rate": 0.10,
+        "sample_rate": 0.8,
+        "col_sample_rate": 0.8,
+        "min_rows": 10,
+    },
+    # Row subsampling focus (ID 8)
+    {
+        "name": "GBM_RowSubsampling_ID8",
+        "ntrees": 500,
+        "max_depth": 8,
+        "learn_rate": 0.05,
+        "sample_rate": 0.7,
+        "col_sample_rate": 1.0,
+        "min_rows": 5,
+    },
+    # Column subsampling focus (ID 9)
+    {
+        "name": "GBM_ColSubsampling_ID9",
+        "ntrees": 500,
+        "max_depth": 8,
+        "learn_rate": 0.05,
+        "sample_rate": 1.0,
+        "col_sample_rate": 0.7,
+        "min_rows": 5,
+    },
+    # Strong subsampling both (ID 10)
+    {
+        "name": "GBM_StrongSubsampling_ID10",
+        "ntrees": 800,
+        "max_depth": 8,
+        "learn_rate": 0.05,
+        "sample_rate": 0.7,
+        "col_sample_rate": 0.7,
+        "min_rows": 5,
+    },
+    # Regularized via min_rows (ID 11)
+    {
+        "name": "GBM_Reg_MinRows_ID11",
+        "ntrees": 500,
+        "max_depth": 8,
+        "learn_rate": 0.05,
+        "sample_rate": 0.9,
+        "col_sample_rate": 0.9,
+        "min_rows": 20,
+    },
+    # Compact model (fast) (ID 12)
+    {
+        "name": "GBM_Compact_Fast_ID12",
+        "ntrees": 150,
+        "max_depth": 6,
+        "learn_rate": 0.07,
+        "sample_rate": 0.9,
+        "col_sample_rate": 0.9,
+        "min_rows": 10,
+    },
+]
 
 # ------------------------------------------------------------------------
 # Data loading & preprocessing
@@ -133,15 +260,14 @@ def get_h2o_cv_and_test_metrics(model, test_frame) -> Dict[str, float]:
     Extract CV RMSE/MAE and Test RMSE/MAE for an H2O model.
     Uses the model's metric accessors with xval=True for CV.
     """
-    # --- Cross-validation metrics ---
-    # xval=True returns the cross-validation metric instead of training/validation.
+    # Cross-validation metrics
     cv_rmse = model.rmse(xval=True)
     try:
         cv_mae = model.mae(xval=True)
     except Exception:
-        cv_mae = np.nan  # some algos may not expose MAE
+        cv_mae = np.nan
 
-    # --- Test metrics ---
+    # Test metrics
     perf_test = model.model_performance(test_frame)
     test_rmse = perf_test.rmse()
     try:
@@ -164,14 +290,11 @@ def h2o_tree_model_complexity(model) -> Dict[str, Any]:
     """
     try:
         summary = model._model_json["output"]["model_summary"].as_data_frame()
-        # Expected columns: number_of_trees, number_of_internal_trees,
-        # min_depth, max_depth, mean_depth, min_leaves, max_leaves, mean_leaves
         n_trees = int(summary.loc[0, "number_of_trees"])
         n_internal = int(summary.loc[0, "number_of_internal_trees"])
         max_depth = float(summary.loc[0, "max_depth"])
         mean_depth = float(summary.loc[0, "mean_depth"])
         mean_leaves = float(summary.loc[0, "mean_leaves"])
-        # Approximate params as internal nodes + leaves
         approx_params = n_internal + int(mean_leaves * n_trees)
         return {
             "n_trees": n_trees,
@@ -196,7 +319,7 @@ def h2o_glm_complexity(model) -> Dict[str, Any]:
     Count GLM parameters as number of coefficients (including intercept).
     """
     try:
-        coefs = model.coef()  # dict of name -> value
+        coefs = model.coef()
         n_params = len(coefs)
         return {
             "n_params": n_params,
@@ -209,14 +332,14 @@ def h2o_glm_complexity(model) -> Dict[str, Any]:
 
 
 # ------------------------------------------------------------------------
-# Model training functions
+# Model training functions (base models)
 # ------------------------------------------------------------------------
 
 def run_h2o_gbm(train, test, x_cols, y_col, seed=42) -> Dict[str, Any]:
     """
-    Train GBM with 5-fold CV and return metrics + complexity.
+    Train base GBM with 5-fold CV and return metrics + complexity.
     """
-    print("[INFO] Training H2O GBM...")
+    print("[INFO] Training H2O GBM (base config)...")
     start = time.perf_counter()
 
     gbm = H2OGradientBoostingEstimator(
@@ -356,10 +479,8 @@ def run_svr_with_pca(
         ]
     )
 
-    # 5-fold CV on train data
     kf = KFold(n_splits=cv_folds, shuffle=True, random_state=seed)
 
-    # Negative RMSE/MAE (scikit uses "higher is better")
     cv_rmse_scores = cross_val_score(
         pipeline,
         X_train,
@@ -377,21 +498,15 @@ def run_svr_with_pca(
         n_jobs=-1,
     )
 
-    # Fit final model on all training data
     pipeline.fit(X_train, y_train)
 
     elapsed = time.perf_counter() - start
 
-    # Test metrics
     y_pred_test = pipeline.predict(X_test)
-    
-    # Older sklearn versions don't support `squared` argument,
-    # so we compute RMSE manually as sqrt(MSE).
     mse_test = mean_squared_error(y_test, y_pred_test)
     test_rmse = np.sqrt(mse_test)
     test_mae = mean_absolute_error(y_test, y_pred_test)
 
-    # Complexity approx from support vectors in SVR after PCA
     svr_model = pipeline.named_steps["svr"]
     pca_model = pipeline.named_steps["pca"]
 
@@ -422,12 +537,102 @@ def run_svr_with_pca(
 
 
 # ------------------------------------------------------------------------
+# GBM hyperparameter sweep
+# ------------------------------------------------------------------------
+
+def run_gbm_sweep(train, test, x_cols, y_col, seed=42) -> List[Dict[str, Any]]:
+    """
+    Run a sweep of manual GBM configurations (from earlier experiments).
+    Returns a list of result dicts.
+    """
+    sweep_results: List[Dict[str, Any]] = []
+
+    for cfg in GBM_SWEEP_CONFIGS:
+        print(f"[INFO] GBM Sweep: Training config {cfg['name']}...")
+        start = time.perf_counter()
+
+        gbm = H2OGradientBoostingEstimator(
+            ntrees=cfg["ntrees"],
+            max_depth=cfg["max_depth"],
+            learn_rate=cfg["learn_rate"],
+            sample_rate=cfg["sample_rate"],
+            col_sample_rate=cfg["col_sample_rate"],
+            min_rows=cfg["min_rows"],
+            nfolds=5,
+            seed=seed,
+            keep_cross_validation_models=False,
+        )
+        gbm.train(x=x_cols, y=y_col, training_frame=train)
+
+        elapsed = time.perf_counter() - start
+        metrics = get_h2o_cv_and_test_metrics(gbm, test)
+        complexity = h2o_tree_model_complexity(gbm)
+
+        sweep_results.append({
+            "model_name": cfg["name"],
+            "algorithm": "GBM_sweep",
+            "train_time_sec": elapsed,
+            "cv_rmse": metrics["cv_rmse"],
+            "cv_mae": metrics["cv_mae"],
+            "test_rmse": metrics["test_rmse"],
+            "test_mae": metrics["test_mae"],
+            "n_params": complexity["approx_params"],
+            "n_trees": complexity["n_trees"],
+            "max_depth": cfg["max_depth"],
+            "mean_depth": complexity["mean_depth"],
+        })
+
+    return sweep_results
+
+
+# ------------------------------------------------------------------------
+# Anomaly tagging
+# ------------------------------------------------------------------------
+
+def annotate_anomalies(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Add a 'notes' column flagging interesting / anomalous behaviors:
+      - very_high_error: test_rmse much worse than best model
+      - very_large_model: n_params > 500k
+      - very_slow_training: train_time_sec > 120s
+      - cv_vs_test_mismatch: |cv_rmse - test_rmse| > 1.0
+    """
+    df = df.copy()
+    best_rmse = df["test_rmse"].min()
+    notes = []
+
+    for _, row in df.iterrows():
+        flags = []
+
+        if row["test_rmse"] > 1.5 * best_rmse:
+            flags.append("very_high_error")
+
+        n_params = row.get("n_params", np.nan)
+        if not pd.isna(n_params) and n_params > 500_000:
+            flags.append("very_large_model")
+
+        if row["train_time_sec"] > 120:
+            flags.append("very_slow_training")
+
+        cv_rmse = row.get("cv_rmse", np.nan)
+        test_rmse = row.get("test_rmse", np.nan)
+        if not pd.isna(cv_rmse) and not pd.isna(test_rmse):
+            if abs(cv_rmse - test_rmse) > 1.0:
+                flags.append("cv_vs_test_mismatch")
+
+        notes.append(",".join(flags) if flags else "")
+
+    df["notes"] = notes
+    return df
+
+
+# ------------------------------------------------------------------------
 # Main experiment runner
 # ------------------------------------------------------------------------
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Unified Superconductivity Regression Experiments"
+        description="Unified Superconductivity Regression Experiments (Extended)"
     )
     parser.add_argument(
         "--data-path",
@@ -445,6 +650,11 @@ def main():
         type=str,
         default="results_superconductivity_models.csv",
         help="Where to save the results table.",
+    )
+    parser.add_argument(
+        "--run-gbm-sweep",
+        action="store_true",
+        help="Run additional GBM hyperparameter sweep experiments.",
     )
     args = parser.parse_args()
 
@@ -467,7 +677,7 @@ def main():
     # 3. Init H2O and create H2OFrames
     print("[INFO] Initializing H2O...")
     h2o.init()
-    #h2o.no_progress()
+    h2o.show_progress()
 
     train_h2o, test_h2o, x_cols, y_col = to_h2o_frames(
         X_train, X_test, y_train, y_test, target_col="critical_temp"
@@ -475,37 +685,43 @@ def main():
 
     results: List[Dict[str, Any]] = []
 
-    # 4. Run models
+    # 4. Base models
     results.append(run_h2o_gbm(train_h2o, test_h2o, x_cols, y_col))
     results.append(run_h2o_rf(train_h2o, test_h2o, x_cols, y_col))
     results.append(run_h2o_glm(train_h2o, test_h2o, x_cols, y_col))
     results.append(run_svr_with_pca(X_train, X_test, y_train, y_test))
 
-    # 5. Results table
+    # 5. Optional GBM hyperparameter sweep
+    if args.run_gbm_sweep:
+        sweep_results = run_gbm_sweep(train_h2o, test_h2o, x_cols, y_col)
+        results.extend(sweep_results)
+
+    # 6. Results table + anomalies
     results_df = pd.DataFrame(results)
     results_df = results_df.sort_values("test_rmse").reset_index(drop=True)
+    results_df = annotate_anomalies(results_df)
 
-    print("\n====================== MODEL COMPARISON ======================")
-    print(results_df[
-        [
-            "model_name",
-            "algorithm",
-            "cv_rmse",
-            "test_rmse",
-            "cv_mae",
-            "test_mae",
-            "n_params",
-            "n_trees",
-            "train_time_sec",
-        ]
-    ])
-    print("==============================================================\n")
+    print("\n====================== MODEL COMPARISON (Sorted by Test RMSE) ======================")
+    cols_to_show = [
+        "model_name",
+        "algorithm",
+        "cv_rmse",
+        "test_rmse",
+        "cv_mae",
+        "test_mae",
+        "n_params",
+        "n_trees",
+        "train_time_sec",
+        "notes",
+    ]
+    print(results_df[cols_to_show])
+    print("====================================================================================\n")
 
     results_df.to_csv(args.output_csv, index=False)
     print(f"[INFO] Saved results to {args.output_csv}")
 
     # Shutdown H2O (optional)
-    h2o.shutdown(prompt=False)
+    h2o.cluster().shutdown(prompt=False)
 
 
 if __name__ == "__main__":
