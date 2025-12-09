@@ -1,0 +1,31 @@
+--- Hyper-parameters ------------------------
+
+ntrees=300
+max_depth=5
+learn_rate=0.05
+
+--- No dataset manipulation ------------------------
+
+Test Set AUC: 0.7543214070048309
+Test Set AUCPR: 0.13055666636506263
+
+--- Confusion Matrix ---
+Confusion Matrix (Act/Pred) for max f1 @ threshold = 0.24967378693955983
+       0    1    Error    Rate
+-----  ---  ---  -------  ------------
+0      712  24   0.0326   (24.0/736.0)
+1      29   7    0.8056   (29.0/36.0)
+Total  741  31   0.0687   (53.0/772.0)
+
+--- Metrics at Max F1 Threshold ---
+True Positives (Strokes Caught): 7
+False Negatives (Strokes Missed): 29
+True Negatives (Correctly predicted no stroke): 712
+False Positives (False alarms): 24
+
+Precision: 0.2258 (22.58%)
+Recall: 0.1944 (19.44%)
+F1 Score: 0.2090
+Accuracy: 0.9313 (93.13%)
+
+--- With Class Balancing ------------------------

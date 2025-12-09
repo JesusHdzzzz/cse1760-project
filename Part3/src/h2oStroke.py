@@ -48,8 +48,8 @@ x = [c for c in df.columns if c != "stroke"]
 y = "stroke"
 '''
 hyper_params = {
-    "max_depth": [3, 4, 5],
-    "learn_rate": [0.05, 0.1],
+    "max_depth": [3, 5, 8],
+    "learn_rate": [0.01, 0.05, 0.1],
     "ntrees": [100, 200, 300]
 }
 
