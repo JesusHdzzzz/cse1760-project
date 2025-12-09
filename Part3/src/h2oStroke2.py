@@ -110,7 +110,7 @@ print(f"Max Depth: {best_gbm.actual_params['max_depth']}, Learning Rate: {best_g
 print("\n--- Best Model Evaluation on Test Set ---")
 print(f"Test Set AUC: {performance.auc()}")
 print(f"Test Set Gini: {performance.gini()}")
-print(f"Test Set F1 Score: {performance.f1()}")
+#print(f"Test Set F1 Score: {performance.f1()}")
 
 # --- 7. SHUTDOWN ---
 
