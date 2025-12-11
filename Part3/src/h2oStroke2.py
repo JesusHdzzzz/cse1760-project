@@ -12,19 +12,19 @@ warnings.filterwarnings('ignore', category=FutureWarning)
 df = pd.read_csv("data/healthcare-dataset-stroke-data.csv")
 
 # Fill in the missing bmi values with the median bmi value
-#bmi_median = df['bmi'].median()
-#df['bmi'].fillna(bmi_median, inplace=True)
+bmi_median = df['bmi'].median()
+df['bmi'].fillna(bmi_median, inplace=True)
 
 # Drop rows where 'bmi' is missing
 #df.dropna(subset=['bmi'], inplace=True)
 
 # Drop the 'Other' gender row
-#df = df[df['gender'] != 'Other']
+df = df[df['gender'] != 'Other']
 
 # --- 2. H2O SETUP AND DATA LOADING ---
 
 # Initialize H2O cluster
-h2o.init(nthreads=-1)
+h2o.init(max_mem_size="8G")
 
 # Convert the cleaned pandas DataFrame to an H2O Frame
 h2o_df = h2o.H2OFrame(df)
@@ -43,34 +43,38 @@ h2o_df[y] = h2o_df[y].asfactor()
 # Split the H2O Frame into train, validation, and test sets
 train, valid, test = h2o_df.split_frame(
     ratios=[0.7, 0.15],
-    seed=42
+    seed = 1234
 )
 
 # --- 4. DEFINE HYPERPARAMETER GRID ---
 
 # Define the hyperparameter search space
 hyper_params = {
-    'max_depth': [5],
-    'learn_rate': [0.05],
-    'ntrees': [300]
+    'max_depth': [8, 10],
+    'learn_rate': [0.03, 0.05],
+    'ntrees': [400],
+    'sample_rate': [0.9, 1.0],
+    'col_sample_rate': [0.7, 0.9],
+    'min_rows': [1, 5]
 }
 
 # --- 5. GBM MODEL TRAINING WITH GRID SEARCH AND BALANCING ---
 
 # Initialize the base GBM model estimator
 gbm_base = H2OGradientBoostingEstimator(
-    seed=42,
-    balance_classes=True,
-    stopping_rounds=0,
-    stopping_metric="AUC",
-    score_tree_interval=1
+    seed=1234,
+    #balance_classes=True,
+    class_sampling_factors=[1.0, 25.0],
+    nfolds=5,
+    keep_cross_validation_predictions=True,
+    fold_assignment="Stratified",
 )
 
 # Initialize the Grid Search
 grid = H2OGridSearch(
     model=gbm_base,
     hyper_params=hyper_params,
-    search_criteria={'strategy': "Cartesian"} # Search all combinations
+    search_criteria={'strategy': "RandomDiscrete", 'max_models': 20}
 )
 
 # Train the Grid Search
@@ -85,8 +89,8 @@ grid.train(
 # --- 6. MODEL EVALUATION AND SELECTION ---
 
 # Get the grid results and sort by AUC (Area Under the Curve)
-grid_perf = grid.get_grid(sort_by="auc", decreasing=True)
-print("\n--- Top Models from Grid Search (Sorted by AUC) ---")
+grid_perf = grid.get_grid(sort_by="aucpr", decreasing=True)
+print("\n--- Top Models from Grid Search (Sorted by AUCPR) ---")
 print(grid_perf)
 
 # Select the best model based on validation AUC
@@ -94,6 +98,32 @@ best_gbm = grid_perf.models[0]
 
 # Evaluate the best model on the unseen test set
 performance = best_gbm.model_performance(test_data=test)
+'''
+predictions = best_gbm.predict(test)
+pred_df = predictions.as_data_frame()
+actual_df = test[y].as_data_frame()
+
+from sklearn.metrics import precision_recall_curve, average_precision_score
+import matplotlib.pyplot as plt
+
+y_true = actual_df[y].values
+y_scores = pred_df['p1'].values
+
+precision, recall, thresholds = precision_recall_curve(y_true, y_scores)
+aucpr = average_precision_score(y_true, y_scores)
+
+# Plot
+plt.figure(figsize=(8, 6))
+plt.plot(recall, precision, 'b-', linewidth=2, label=f'AUCPR = {aucpr:.3f}')
+plt.xlabel('Recall', fontsize=12)
+plt.ylabel('Precision', fontsize=12)
+plt.title('Precision-Recall Curve', fontsize=14)
+plt.legend(fontsize=11)
+plt.grid(True, alpha=0.3)
+plt.tight_layout()
+plt.savefig('simple_aucpr.png')
+plt.show()
+'''
 
 # --- 6. MODEL EVALUATION AND SELECTION (Continued) ---
 
@@ -130,6 +160,14 @@ recall = tp / (tp + fn) if (tp + fn) > 0 else 0
 f1 = 2 * (precision * recall) / (precision + recall) if (precision + recall) > 0 else 0
 accuracy = (tp + tn) / (tp + tn + fp + fn)
 
+precision_class0 = tn / (tn + fn) if (tn + fn) > 0 else 0
+recall_class0 = tn / (tn + fp) if (tn + fp) > 0 else 0
+f1_class0 = 2 * (precision_class0 * recall_class0) / (precision_class0 + recall_class0) if (precision_class0 + recall_class0) > 0 else 0
+macro_f1 = (f1 + f1_class0) / 2
+
+total = tp + tn + fp + fn
+weighted_f1 = (f1_class0 * (tn + fp) + f1 * (tp + fn)) / total
+
 print("\n--- Metrics at Max F1 Threshold ---")
 print(f"True Positives (Strokes Caught): {tp}")
 print(f"False Negatives (Strokes Missed): {fn}")
@@ -138,10 +176,12 @@ print(f"False Positives (False alarms): {fp}")
 print(f"\nPrecision: {precision:.4f} ({precision*100:.2f}%)")
 print(f"Recall: {recall:.4f} ({recall*100:.2f}%)")
 print(f"F1 Score: {f1:.4f}")
+print(f"Macro F1: {macro_f1:.4f}")
+print(f"Weighted F1: {weighted_f1:.4f}")
 print(f"Accuracy: {accuracy:.4f} ({accuracy*100:.2f}%)")
 
 # --- 7. FEATURE SELECTION AND FINAL MODEL TRAINING ---
-'''
+
 # 7.1. Identify Features to Keep (Filtering based on Importance > 0)
 
 # Create a list of features to drop (those with 0 importance from previous output)
@@ -169,17 +209,20 @@ final_gbm = H2OGradientBoostingEstimator(
     ntrees=best_trees,
     max_depth=best_depth,
     learn_rate=best_rate,
-    # Use the same stabilization parameters
-    seed=42,
-    balance_classes=True,
-    model_id="final_stroke_gbm_reduced"
+    seed=1234,
+    #balance_classes=True,
+    class_sampling_factors=[1.0, 25.0],
+    nfolds=5,
+    keep_cross_validation_predictions=True,
+    fold_assignment="Stratified"
 )
 
 # Train using the reduced feature set
 final_gbm.train(
     x=X_reduced,
     y=y,
-    training_frame=train
+    training_frame=train,
+    validation_frame=valid
 )
 
 # 7.4. Evaluate Reduced Model (If using full train set, skip test evaluation)
@@ -200,38 +243,44 @@ cm = final_performance.confusion_matrix()
 print("\n--- Confusion Matrix ---")
 print(cm)
 
+cm_table = cm.to_list()
+tn = cm_table[0][0]  # True Negatives
+fp = cm_table[0][1]  # False Positives
+fn = cm_table[1][0]  # False Negatives
+tp = cm_table[1][1]  # True Positives
+
+# Calculate metrics manually
+precision = tp / (tp + fp) if (tp + fp) > 0 else 0
+recall = tp / (tp + fn) if (tp + fn) > 0 else 0
+f1 = 2 * (precision * recall) / (precision + recall) if (precision + recall) > 0 else 0
+accuracy = (tp + tn) / (tp + tn + fp + fn)
+
+precision_class0 = tn / (tn + fn) if (tn + fn) > 0 else 0
+recall_class0 = tn / (tn + fp) if (tn + fp) > 0 else 0
+f1_class0 = 2 * (precision_class0 * recall_class0) / (precision_class0 + recall_class0) if (precision_class0 + recall_class0) > 0 else 0
+macro_f1 = (f1 + f1_class0) / 2
+
+total = tp + tn + fp + fn
+weighted_f1 = (f1_class0 * (tn + fp) + f1 * (tp + fn)) / total
+
+print("\n--- Metrics at Max F1 Threshold ---")
+print(f"True Positives (Strokes Caught): {tp}")
+print(f"False Negatives (Strokes Missed): {fn}")
+print(f"True Negatives (Correctly predicted no stroke): {tn}")
+print(f"False Positives (False alarms): {fp}")
+print(f"\nPrecision: {precision:.4f} ({precision*100:.2f}%)")
+print(f"Recall: {recall:.4f} ({recall*100:.2f}%)")
+print(f"F1 Score: {f1:.4f}")
+print(f"Macro F1: {macro_f1:.4f}")
+print(f"Weighted F1: {weighted_f1:.4f}")
+print(f"Accuracy: {accuracy:.4f} ({accuracy*100:.2f}%)")
+
 # Get standard metrics
 print("\n--- Performance Metrics ---")
 print(f"AUC: {final_performance.auc()}")
-print(f"Gini: {final_performance.gini()}")
-print(f"Logloss: {final_performance.logloss()}")
+print(f"AUCPR: {final_performance.aucpr()}")
 
-# Get F1 scores at different thresholds
-print("\n--- F1 Score ---")
-f1_scores = final_performance.F1()
-print(f1_scores)
 
-# Get precision at different thresholds
-print("\n--- Precision ---")
-precision_scores = final_performance.precision()
-print(precision_scores)
-
-# Get recall at different thresholds
-print("\n--- Recall (Sensitivity) ---")
-recall_scores = final_performance.recall()
-print(recall_scores)
-
-# Get accuracy
-print("\n--- Accuracy ---")
-accuracy_scores = final_performance.accuracy()
-print(accuracy_scores)
-
-# If you want the metrics at the default threshold (usually 0.5), 
-# these methods return arrays, so you can access specific threshold values
-print("\n--- Summary at Default Threshold ---")
-# The arrays are indexed by threshold, you may need to find the right index
-# or simply display the entire output which shows metrics across thresholds
-'''
 # --- 8. SHUTDOWN ---
 
 h2o.cluster().shutdown()
