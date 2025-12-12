@@ -209,7 +209,7 @@ plt.title('Precision-Recall Curve', fontsize=14)
 plt.legend(fontsize=11)
 plt.grid(True, alpha=0.3)
 plt.tight_layout()
-plt.savefig('simple_aucpr.png')
+#plt.savefig('simple_aucpr.png')
 plt.show()
 
 from sklearn.metrics import roc_curve, auc
@@ -231,7 +231,7 @@ plt.title('ROC Curve', fontsize=14)
 plt.legend(fontsize=11)
 plt.grid(True, alpha=0.3)
 plt.tight_layout()
-plt.savefig('roc_curve.png')
+#plt.savefig('roc_curve.png')
 plt.show()
 
 # --- 6. MODEL EVALUATION AND SELECTION (Continued) ---
