@@ -90,3 +90,52 @@
     Macro F1: 0.6404
     Weighted F1: 0.9143
     Accuracy: 0.9024 (90.24%)
+
+
+-----------------------------------------------------------------------------------------
+
+--- Best Model Evaluation on Test Set ---
+Trees: 200
+Max Depth: 8
+Learn Rate: 0.03
+Sample Rate: 0.7
+Col Sample Rate: 0.9
+Min Rows: 2.0
+Test Set AUC: 0.8272436518705175
+Test Set AUCPR: 0.2198703671360668
+
+--- Confusion Matrix ---
+Confusion Matrix (Act/Pred) for max f1 @ threshold = 0.026741568833587984
+       0    1    Error    Rate
+-----  ---  ---  -------  -------------
+0      630  107  0.1452   (107.0/737.0)
+1      13   29   0.3095   (13.0/42.0)
+Total  643  136  0.154    (120.0/779.0)
+
+--- Metrics at Max F1 Threshold ---
+True Positives (Strokes Caught): 29
+False Negatives (Strokes Missed): 13
+True Negatives (Correctly predicted no stroke): 630
+False Positives (False alarms): 107
+
+Precision: 0.2132 (21.32%)
+Recall: 0.6905 (69.05%)
+F1 Score: 0.3258
+Macro F1: 0.6194
+Weighted F1: 0.8814
+Accuracy: 0.8460 (84.60%)
+
+
+
+--- Top 10 Feature Combinations ---
+                                              features  n_features     aucpr       auc
+245  [gender, age, heart_disease, bmi, smoking_status]           5  0.235181  0.844306
+506  [gender, age, heart_disease, ever_married, bmi...           6  0.225432  0.851174
+88             [age, hypertension, heart_disease, bmi]           4  0.224755  0.832093
+210  [gender, age, hypertension, heart_disease, eve...           5  0.222867  0.845230
+119          [age, heart_disease, bmi, smoking_status]           4  0.222351  0.844456
+380  [age, heart_disease, ever_married, bmi, smokin...           5  0.217544  0.843232
+84    [age, hypertension, heart_disease, ever_married]           4  0.215879  0.832917
+339  [age, hypertension, heart_disease, ever_marrie...           5  0.211690  0.836214
+129           [age, ever_married, bmi, smoking_status]           4  0.201274  0.816633
+343  [age, hypertension, heart_disease, work_type, ...           5  0.197844  0.828247

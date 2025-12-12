@@ -78,9 +78,9 @@ print(f"Totals: No Stroke (0): {totalnostroke}, Stroke (1): {totalstroke}")
 
 # Define the hyperparameter search space
 hyper_params = {
-    'max_depth': [6, 7, 8],
+    'max_depth': [8],
     'learn_rate': [0.03],
-    'ntrees': [200, 300, 400, 500, 600],
+    'ntrees': [200],
     'sample_rate': [0.7],
     'col_sample_rate': [0.9],
     'min_rows': [2]
@@ -157,7 +157,7 @@ for model in grid_perf.models:
 import matplotlib.pyplot as plt
 sorted_data = sorted(zip(n_trees_list, train_aucpr_list, valid_aucpr_list, test_aucpr_list))
 n_trees_sorted, train_sorted, valid_sorted, test_sorted = zip(*sorted_data)
-
+'''
 # Plot AUCPR vs Number of Trees
 plt.figure(figsize=(10, 6))
 plt.plot(n_trees_sorted, train_sorted, marker='o', label='Train AUCPR', linewidth=2)
@@ -172,7 +172,7 @@ plt.tight_layout()
 #plt.savefig('aucpr_vs_minRows.png', dpi=300)
 #print("\nPlot saved as 'aucpr_vs_ntrees.png'")
 #plt.show()
-
+'''
 # --- 6. MODEL EVALUATION AND SELECTION ---
 
 # Get the grid results and sort by AUC (Area Under the Curve)
@@ -186,7 +186,7 @@ best_gbm = grid_perf.models[0]
 # Evaluate the best model on the unseen test set
 performance = best_gbm.model_performance(test_data=test)
 
-'''
+
 predictions = best_gbm.predict(test)
 pred_df = predictions.as_data_frame()
 actual_df = test[y].as_data_frame()
@@ -211,7 +211,28 @@ plt.grid(True, alpha=0.3)
 plt.tight_layout()
 plt.savefig('simple_aucpr.png')
 plt.show()
-'''
+
+from sklearn.metrics import roc_curve, auc
+
+# Get predictions and actual values (you already have these)
+y_true = actual_df[y].values
+y_scores = pred_df['p1'].values
+
+# Calculate ROC curve
+fpr, tpr, roc_thresholds = roc_curve(y_true, y_scores)
+roc_auc = auc(fpr, tpr)
+
+# Plot ROC curve
+plt.figure(figsize=(8, 6))
+plt.plot(fpr, tpr, 'b-', linewidth=2, label=f'ROC AUC = {roc_auc:.3f}')
+plt.xlabel('False Positive Rate', fontsize=12)
+plt.ylabel('True Positive Rate', fontsize=12)
+plt.title('ROC Curve', fontsize=14)
+plt.legend(fontsize=11)
+plt.grid(True, alpha=0.3)
+plt.tight_layout()
+plt.savefig('roc_curve.png')
+plt.show()
 
 # --- 6. MODEL EVALUATION AND SELECTION (Continued) ---
 # Print final results
