@@ -348,90 +348,7 @@ Mean Residual Deviance: 90.59510933841406
 
 15. Dimensionality Reduction + GBM
 
-## PCA-based GBM: project features, then train GBM on PCs
 
-import numpy as np
-import pandas as pd
-from sklearn.preprocessing import StandardScaler
-from sklearn.decomposition import PCA
-
-# Convert H2OFrames to pandas
-train_pd = train.as_data_frame()
-valid_pd = valid.as_data_frame()
-test_pd  = test.as_data_frame()
-
-y = "critical_temp"
-X_cols = [c for c in train_pd.columns if c != y]
-
-X_train_np = train_pd[X_cols].values
-X_valid_np = valid_pd[X_cols].values
-X_test_np  = test_pd[X_cols].values
-
-y_train_np = train_pd[y].values
-y_valid_np = valid_pd[y].values
-y_test_np  = test_pd[y].values
-
-# Standardize before PCA
-scaler_pca = StandardScaler()
-X_train_scaled = scaler_pca.fit_transform(X_train_np)
-X_valid_scaled = scaler_pca.transform(X_valid_np)
-X_test_scaled  = scaler_pca.transform(X_test_np)
-
-# PCA: keep 95% variance
-pca = PCA(n_components=0.95, random_state=176)
-X_train_pca = pca.fit_transform(X_train_scaled)
-X_valid_pca = pca.transform(X_valid_scaled)
-X_test_pca  = pca.transform(X_test_scaled)
-
-print("Original dim:", X_train_scaled.shape[1])
-print("PCA dim:", X_train_pca.shape[1])
-
-# Build pandas DataFrames for PCA features + target
-pc_names = [f"PC{i+1}" for i in range(X_train_pca.shape[1])]
-
-train_pca_pd = pd.DataFrame(X_train_pca, columns=pc_names)
-valid_pca_pd = pd.DataFrame(X_valid_pca, columns=pc_names)
-test_pca_pd  = pd.DataFrame(X_test_pca,  columns=pc_names)
-
-train_pca_pd[y] = y_train_np
-valid_pca_pd[y] = y_valid_np
-test_pca_pd[y]  = y_test_np
-
-# Convert to H2OFrames
-train_pca = h2o.H2OFrame(train_pca_pd)
-valid_pca = h2o.H2OFrame(valid_pca_pd)
-test_pca  = h2o.H2OFrame(test_pca_pd)
-
-# Train GBM on PCA features using your strong config
-from h2o.estimators import H2OGradientBoostingEstimator
-
-gbm_pca = H2OGradientBoostingEstimator(
-    ntrees=800,
-    max_depth=12,
-    learn_rate=0.03,
-    sample_rate=0.8,
-    col_sample_rate=0.8,
-    min_rows=10,
-    stopping_rounds=5,
-    stopping_metric="RMSE",
-    stopping_tolerance=1e-4,
-    seed=176
-)
-
-gbm_pca.train(
-    x=pc_names,
-    y=y,
-    training_frame=train_pca,
-    validation_frame=valid_pca
-)
-
-print("=== GBM PCA: Validation Performance ===")
-perf_valid_pca = gbm_pca.model_performance(valid_pca)
-perf_valid_pca.show()
-
-print("\n=== GBM PCA: Test Performance ===")
-perf_test_pca = gbm_pca.model_performance(test_pca)
-perf_test_pca.show()
 
 16. Feature Selection (Top-K by Mutual Information) + GBM
 
@@ -590,3 +507,271 @@ with other Hyperparameters, manipulating dataset, and/or stopping early to see i
 
 Notes from these results ^^:
 - Despite stopping early the results still came back to be worse than when we let the model reach the max amount of trees.
+
+These results below are from GBM (PCA 95% variance) in line 413.
+
+===== PCA SUMMARY =====
+Original features:  81
+PCA components:     17
+
+=== Variance Explained by Each PC ===
+      PC  Explained_Variance_Ratio  Cumulative_Variance
+0    PC1                  0.390461             0.390461
+1    PC2                  0.104131             0.494592
+2    PC3                  0.094710             0.589302
+3    PC4                  0.078769             0.668071
+4    PC5                  0.059314             0.727385
+5    PC6                  0.037555             0.764941
+6    PC7                  0.036096             0.801036
+7    PC8                  0.031493             0.832529
+8    PC9                  0.023678             0.856207
+9   PC10                  0.019694             0.875901
+10  PC11                  0.018397             0.894298
+11  PC12                  0.014527             0.908825
+12  PC13                  0.011807             0.920632
+13  PC14                  0.009954             0.930586
+14  PC15                  0.009685             0.940271
+15  PC16                  0.007817             0.948088
+16  PC17                  0.007175             0.955263
+
+Total variance captured by PCA: 0.9553
+
+=== Top contributing features for each PC ===
+
+PC1:
+  Top positive contributors:
+    range_fie                            0.1637
+    wtd_entropy_atomic_radius            0.1635
+    range_atomic_radius                  0.1633
+    wtd_std_fie                          0.1633
+    wtd_std_atomic_radius                0.1602
+  Top negative contributors:
+    wtd_gmean_Density                   -0.1559
+    gmean_Density                       -0.1506
+    wtd_gmean_Valence                   -0.1466
+    wtd_mean_Valence                    -0.1445
+    gmean_Valence                       -0.1413
+
+PC2:
+  Top positive contributors:
+    gmean_atomic_radius                  0.2376
+    mean_atomic_radius                   0.2337
+    mean_atomic_mass                     0.2268
+    gmean_atomic_mass                    0.2210
+    wtd_mean_atomic_mass                 0.1946
+  Top negative contributors:
+    std_FusionHeat                      -0.2128
+    wtd_std_FusionHeat                  -0.2063
+    range_FusionHeat                    -0.1957
+    mean_fie                            -0.1841
+    gmean_fie                           -0.1834
+
+PC3:
+  Top positive contributors:
+    wtd_entropy_ThermalConductivity      0.2531
+    wtd_std_Valence                      0.2280
+    range_Valence                        0.2237
+    entropy_ThermalConductivity          0.2150
+    wtd_entropy_fie                      0.2135
+  Top negative contributors:
+    wtd_range_fie                       -0.1512
+    std_ThermalConductivity             -0.1155
+    wtd_std_ThermalConductivity         -0.1041
+    range_ThermalConductivity           -0.0985
+    mean_atomic_radius                  -0.0879
+
+PC4:
+  Top positive contributors:
+    wtd_mean_ElectronAffinity            0.2752
+    mean_ElectronAffinity                0.2720
+    wtd_gmean_ElectronAffinity           0.2655
+    gmean_ElectronAffinity               0.2324
+    wtd_range_ElectronAffinity           0.1960
+  Top negative contributors:
+    entropy_ThermalConductivity         -0.1897
+    wtd_entropy_ThermalConductivity     -0.1582
+    range_FusionHeat                    -0.1169
+    entropy_Density                     -0.1111
+    std_FusionHeat                      -0.1067
+
+PC5:
+  Top positive contributors:
+    wtd_mean_ThermalConductivity         0.2933
+    mean_ThermalConductivity             0.2839
+    wtd_range_ThermalConductivity        0.2593
+    wtd_gmean_ThermalConductivity        0.2128
+    wtd_range_FusionHeat                 0.1976
+  Top negative contributors:
+    wtd_std_Valence                     -0.1650
+    range_Valence                       -0.1389
+    std_Valence                         -0.1221
+    gmean_fie                           -0.1050
+    mean_fie                            -0.1024
+
+PC6:
+  Top positive contributors:
+    wtd_range_fie                        0.2922
+    wtd_range_ElectronAffinity           0.2497
+    wtd_range_Valence                    0.2280
+    wtd_gmean_ElectronAffinity           0.1887
+    entropy_Density                      0.1696
+  Top negative contributors:
+    wtd_mean_ThermalConductivity        -0.2902
+    wtd_range_ThermalConductivity       -0.2110
+    gmean_fie                           -0.2085
+    mean_fie                            -0.2025
+    mean_ThermalConductivity            -0.1639
+
+PC7:
+  Top positive contributors:
+    std_Density                          0.2862
+    std_atomic_mass                      0.2658
+    wtd_std_Density                      0.2540
+    range_Density                        0.2533
+    wtd_std_atomic_mass                  0.2481
+  Top negative contributors:
+    mean_ElectronAffinity               -0.2649
+    gmean_ElectronAffinity              -0.2169
+    wtd_mean_ElectronAffinity           -0.2095
+    wtd_mean_ThermalConductivity        -0.2057
+    wtd_range_ThermalConductivity       -0.1945
+
+PC8:
+  Top positive contributors:
+    wtd_range_atomic_radius              0.3134
+    wtd_range_Valence                    0.3033
+    wtd_range_atomic_mass                0.2894
+    wtd_range_Density                    0.2853
+    std_Valence                          0.2827
+  Top negative contributors:
+    wtd_entropy_Density                 -0.1845
+    gmean_FusionHeat                    -0.1786
+    gmean_Valence                       -0.1490
+    mean_FusionHeat                     -0.1468
+    gmean_ElectronAffinity              -0.1444
+
+PC9:
+  Top positive contributors:
+    std_Valence                          0.3255
+    wtd_std_Valence                      0.2987
+    range_Valence                        0.2917
+    mean_ThermalConductivity             0.2515
+    gmean_ThermalConductivity            0.2211
+  Top negative contributors:
+    wtd_range_atomic_radius             -0.2663
+    wtd_range_atomic_mass               -0.2511
+    wtd_range_Density                   -0.1977
+    mean_fie                            -0.1721
+    gmean_fie                           -0.1552
+
+PC10:
+  Top positive contributors:
+    gmean_fie                            0.2688
+    mean_ThermalConductivity             0.2359
+    gmean_ThermalConductivity            0.2202
+    mean_fie                             0.2116
+    entropy_ThermalConductivity          0.2068
+  Top negative contributors:
+    mean_atomic_radius                  -0.2254
+    std_atomic_radius                   -0.2230
+    wtd_range_ThermalConductivity       -0.1592
+    gmean_ElectronAffinity              -0.1507
+    range_atomic_radius                 -0.1498
+
+PC11:
+  Top positive contributors:
+    wtd_std_ElectronAffinity             0.3950
+    std_ElectronAffinity                 0.3885
+    range_ElectronAffinity               0.3184
+    mean_atomic_radius                   0.1763
+    wtd_range_ElectronAffinity           0.1627
+  Top negative contributors:
+    gmean_ElectronAffinity              -0.3211
+    entropy_ElectronAffinity            -0.2619
+    wtd_entropy_ElectronAffinity        -0.2451
+    wtd_gmean_ElectronAffinity          -0.2235
+    wtd_range_atomic_mass               -0.1540
+
+PC12:
+  Top positive contributors:
+    mean_atomic_mass                     0.2822
+    wtd_mean_atomic_mass                 0.2789
+    gmean_atomic_mass                    0.2519
+    wtd_gmean_atomic_mass                0.2420
+    wtd_gmean_ThermalConductivity        0.1664
+  Top negative contributors:
+    gmean_Valence                       -0.2100
+    wtd_range_atomic_radius             -0.1947
+    mean_Valence                        -0.1919
+    wtd_gmean_Valence                   -0.1861
+    wtd_mean_atomic_radius              -0.1815
+
+PC13:
+  Top positive contributors:
+    std_atomic_mass                      0.2821
+    wtd_std_atomic_mass                  0.2561
+    range_atomic_mass                    0.2297
+    wtd_entropy_ThermalConductivity      0.2151
+    std_ElectronAffinity                 0.1813
+  Top negative contributors:
+    std_Valence                         -0.2359
+    gmean_fie                           -0.2162
+    mean_fie                            -0.2137
+    range_Valence                       -0.2117
+    wtd_range_ThermalConductivity       -0.1942
+
+PC14:
+  Top positive contributors:
+    std_ThermalConductivity              0.2858
+    range_ThermalConductivity            0.2624
+    range_FusionHeat                     0.2444
+    std_FusionHeat                       0.2250
+    wtd_std_ThermalConductivity          0.2157
+  Top negative contributors:
+    wtd_gmean_ThermalConductivity       -0.2652
+    entropy_ThermalConductivity         -0.2299
+    mean_atomic_radius                  -0.1957
+    std_fie                             -0.1954
+    gmean_ThermalConductivity           -0.1907
+
+PC15:
+  Top positive contributors:
+    wtd_gmean_FusionHeat                 0.2820
+    std_atomic_mass                      0.2694
+    range_atomic_mass                    0.2606
+    wtd_mean_FusionHeat                  0.2166
+    wtd_range_FusionHeat                 0.2060
+  Top negative contributors:
+    range_FusionHeat                    -0.2653
+    wtd_std_FusionHeat                  -0.2451
+    std_FusionHeat                      -0.2245
+    wtd_std_Density                     -0.2232
+    std_Density                         -0.1985
+
+PC16:
+  Top positive contributors:
+    gmean_FusionHeat                     0.3396
+    mean_FusionHeat                      0.2578
+    wtd_range_atomic_mass                0.2321
+    mean_ThermalConductivity             0.2294
+    std_ThermalConductivity              0.2143
+  Top negative contributors:
+    wtd_range_ThermalConductivity       -0.2671
+    wtd_mean_ThermalConductivity        -0.1762
+    wtd_gmean_ThermalConductivity       -0.1687
+    entropy_ThermalConductivity         -0.1627
+    range_Density                       -0.1553
+
+PC17:
+  Top positive contributors:
+    wtd_range_Density                    0.3358
+    wtd_range_ElectronAffinity           0.2034
+    wtd_range_atomic_mass                0.1660
+    wtd_mean_Density                     0.1505
+    wtd_mean_ElectronAffinity            0.1466
+  Top negative contributors:
+    wtd_range_atomic_radius             -0.2879
+    wtd_range_FusionHeat                -0.2332
+    mean_ElectronAffinity               -0.2037
+    gmean_ElectronAffinity              -0.1938
+    mean_atomic_mass                    -0.1874

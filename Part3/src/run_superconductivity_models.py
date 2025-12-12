@@ -637,7 +637,7 @@ def main():
     parser.add_argument(
         "--data-path",
         type=str,
-        default="../Part3/images/superconductivty-data/train.csv",
+        default="images/superconductivty-data/train.csv",
         help="Path to superconductivity CSV (must include 'critical_temp').",
     )
     parser.add_argument(
@@ -648,7 +648,7 @@ def main():
     parser.add_argument(
         "--output-csv",
         type=str,
-        default="results_superconductivity_models.csv",
+        default="output/results_superconductivity_models.csv",
         help="Where to save the results table.",
     )
     parser.add_argument(
