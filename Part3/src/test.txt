@@ -1,0 +1,96 @@
+============================================================
+STROKE PREDICTION MODEL - NO DATA LEAKAGE VERSION
+============================================================
+
+1. Loading and preparing data...
+
+2. Initial feature selection (domain knowledge only)...
+3. Initializing H2O...
+Checking whether there is an H2O instance running at http://localhost:54321..... not found.
+Attempting to start a local H2O server...
+  Java Version: openjdk version "1.8.0_472"; OpenJDK Runtime Environment (build 1.8.0_472-8u472-ga-1~22.04-b08); OpenJDK 64-Bit Server VM (build 25.472-b08, mixed mode)
+  Starting server from /home/takahashijake/.local/lib/python3.10/site-packages/h2o/backend/bin/h2o.jar
+  Ice root: /tmp/tmp9ibb_xxs
+  JVM stdout: /tmp/tmp9ibb_xxs/h2o_takahashijake_started_from_python.out
+  JVM stderr: /tmp/tmp9ibb_xxs/h2o_takahashijake_started_from_python.err
+  Server is running at http://127.0.0.1:54321
+Connecting to H2O server at http://127.0.0.1:54321 ... successful.
+--------------------------  ------------------------------------
+H2O_cluster_uptime:         01 secs
+H2O_cluster_timezone:       America/Los_Angeles
+H2O_data_parsing_timezone:  UTC
+H2O_cluster_version:        3.46.0.9
+H2O_cluster_version_age:    17 days
+H2O_cluster_name:           H2O_from_python_takahashijake_4hvm3a
+H2O_cluster_total_nodes:    1
+H2O_cluster_free_memory:    7.096 Gb
+H2O_cluster_total_cores:    8
+H2O_cluster_allowed_cores:  8
+H2O_cluster_status:         locked, healthy
+H2O_connection_url:         http://127.0.0.1:54321
+H2O_connection_proxy:       {"http": null, "https": null}
+H2O_internal_security:      False
+Python_version:             3.10.12 final
+--------------------------  ------------------------------------
+Parse progress: |████████████████████████████████████████████████████████████████| (done) 100%
+4. Creating stratified splits...
+Parse progress: |████████████████████████████████████████████████████████████████| (done) 100%
+Parse progress: |████████████████████████████████████████████████████████████████| (done) 100%
+Parse progress: |████████████████████████████████████████████████████████████████| (done) 100%
+
+✅ FINAL DATA SPLITS:
+  Train: 3575 samples (for training)
+  Valid: 767 samples (for hyperparameter tuning)
+  Test:  767 samples (FINAL evaluation only)
+
+5. Feature selection using train set only...
+gbm Model Build progress: |██████████████████████████████████████████████████████| (done) 100%
+
+Feature Importance (from train set only):
+  age                 : 1.000
+  bmi                 : 0.188
+  avg_glucose_level   : 0.145
+  hypertension        : 0.055
+  smoking_status      : 0.010
+  work_type           : 0.010
+  gender              : 0.004
+  Residence_type      : 0.003
+  ever_married        : 0.003
+  heart_disease       : 0.002
+
+Dropping features with <0.01 importance: ['gender', 'Residence_type', 'ever_married', 'heart_disease']
+✅ Final features: 6 features
+
+6. Hyperparameter tuning (train + valid sets only)...
+Training grid search on train set, validating on validation set...
+gbm Grid Build progress: |███████████████████████████████████████████████████████| (done) 100%
+✓ Best model validation AUC: 0.8658
+
+7. Optimizing threshold on validation set only...
+✓ Optimal F2 threshold from validation set: 0.0527
+
+8. FINAL evaluation on test set (one time only)...
+gbm prediction progress: |███████████████████████████████████████████████████████| (done) 100%
+
+============================================================
+✅ FINAL UNBIASED PERFORMANCE
+============================================================
+
+Test Set Performance (threshold from validation):
+  Recall:              0.622 (23/37 strokes caught)
+  Precision:           0.154 (23/149 alerts are real)
+  F2 Score:            0.387
+  Accuracy:            0.817
+  AUCPR:               0.2193
+  AUC-ROC:             0.8492
+
+Data Usage Summary:
+  Train:    3575 samples - Model training
+  Valid:    767 samples - Hyperparameter tuning
+  Test:     767 samples - FINAL evaluation only
+
+============================================================
+✅ COMPLETED IN 12.66 SECONDS
+✅ NO DATA LEAKAGE - Proper train/valid/test usage
+============================================================
+H2O session _sid_b2b2 closed.
