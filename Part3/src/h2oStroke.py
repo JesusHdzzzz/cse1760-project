@@ -20,6 +20,8 @@ h2o.init(max_mem_size="4G")
 data_path = "data/healthcare-dataset-stroke-data.csv"
 df = h2o.import_file(data_path)
 
+print(df['stroke'].nrows)
+
 # ------------------------------
 # Basic cleaning
 # ------------------------------
@@ -44,8 +46,32 @@ df["stroke"] = df["stroke"].asfactor()
 # ------------------------------
 train, validation, test = df.split_frame(ratios=[0.7, 0.15], seed=123)
 
+
 x = [c for c in df.columns if c != "stroke"]
 y = "stroke"
+
+# Check class distribution in each split
+print("\n--- Class Distribution in Splits ---")
+print("\nTraining Set:")
+train_dist = train[y].table()
+print(train_dist)
+train_counts = train_dist.as_data_frame()
+print(f"No Stroke (0): {int(train_counts.iloc[0, 1])}, Stroke (1): {int(train_counts.iloc[1, 1])}")
+
+print("\nValidation Set:")
+valid_dist = validation[y].table()
+print(valid_dist)
+valid_counts = valid_dist.as_data_frame()
+print(f"No Stroke (0): {int(valid_counts.iloc[0, 1])}, Stroke (1): {int(valid_counts.iloc[1, 1])}")
+
+print("\nTest Set:")
+test_dist = test[y].table()
+print(test_dist)
+test_counts = test_dist.as_data_frame()
+print(f"No Stroke (0): {int(test_counts.iloc[0, 1])}, Stroke (1): {int(test_counts.iloc[1, 1])}")
+
+'''
+'''
 '''
 hyper_params = {
     "max_depth": [3, 5, 8],
@@ -84,7 +110,7 @@ plt.legend()
 plt.grid(True)
 plt.show()
 '''
-
+'''
 # ------------------------------
 # Build GBM model
 # ------------------------------
@@ -124,3 +150,4 @@ print(gbm.varimp(True))
 # Save to CSV
 #results_df.to_csv("hyperparameter_results.csv", index=False)
 #print("Saved results to hyperparameter_results.csv")
+'''

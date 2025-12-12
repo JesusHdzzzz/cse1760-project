@@ -1,53 +1,92 @@
 --- Hyper-parameters ------------------------
 
-ntrees=300
-max_depth=5
-learn_rate=0.05
+    ntrees=300
+    max_depth=5
+    learn_rate=0.05
 
 --- No dataset manipulation ------------------------
 
-Test Set AUC: 0.7543214070048309
-Test Set AUCPR: 0.13055666636506263
+    Test Set AUC: 0.7543214070048309
+    Test Set AUCPR: 0.13055666636506263
 
---- Confusion Matrix ---
-Confusion Matrix (Act/Pred) for max f1 @ threshold = 0.24967378693955983
-       0    1    Error    Rate
------  ---  ---  -------  ------------
-0      712  24   0.0326   (24.0/736.0)
-1      29   7    0.8056   (29.0/36.0)
-Total  741  31   0.0687   (53.0/772.0)
+    --- Confusion Matrix ---
+    Confusion Matrix (Act/Pred) for max f1 @ threshold = 0.24967378693955983
+        0    1    Error    Rate
+    -----  ---  ---  -------  ------------
+    0      712  24   0.0326   (24.0/736.0)
+    1      29   7    0.8056   (29.0/36.0)
+    Total  741  31   0.0687   (53.0/772.0)
 
---- Metrics at Max F1 Threshold ---
-True Positives (Strokes Caught): 7
-False Negatives (Strokes Missed): 29
-True Negatives (Correctly predicted no stroke): 712
-False Positives (False alarms): 24
+    --- Metrics at Max F1 Threshold ---
+    True Positives (Strokes Caught): 7
+    False Negatives (Strokes Missed): 29
+    True Negatives (Correctly predicted no stroke): 712
+    False Positives (False alarms): 24
 
-Precision: 0.2258 (22.58%)
-Recall: 0.1944 (19.44%)
-F1 Score: 0.2090
-Accuracy: 0.9313 (93.13%)
+    Precision: 0.2258 (22.58%)
+    Recall: 0.1944 (19.44%)
+    F1 Score: 0.2090
+    Accuracy: 0.9313 (93.13%)
 
 --- With Class Balancing ------------------------
 
-Test Set AUC: 0.749603713768116
-Test Set AUCPR: 0.11727528046962175
+    Test Set AUC: 0.749603713768116
+    Test Set AUCPR: 0.11727528046962175
 
---- Confusion Matrix ---
-Confusion Matrix (Act/Pred) for max f1 @ threshold = 0.013543821707456069
-       0    1    Error    Rate
------  ---  ---  -------  -------------
-0      622  114  0.1549   (114.0/736.0)
-1      17   19   0.4722   (17.0/36.0)
-Total  639  133  0.1697   (131.0/772.0)
+    --- Confusion Matrix ---
+    Confusion Matrix (Act/Pred) for max f1 @ threshold = 0.013543821707456069
+        0    1    Error    Rate
+    -----  ---  ---  -------  -------------
+    0      622  114  0.1549   (114.0/736.0)
+    1      17   19   0.4722   (17.0/36.0)
+    Total  639  133  0.1697   (131.0/772.0)
 
---- Metrics at Max F1 Threshold ---
-True Positives (Strokes Caught): 19
-False Negatives (Strokes Missed): 17
-True Negatives (Correctly predicted no stroke): 622
-False Positives (False alarms): 114
+    --- Metrics at Max F1 Threshold ---
+    True Positives (Strokes Caught): 19
+    False Negatives (Strokes Missed): 17
+    True Negatives (Correctly predicted no stroke): 622
+    False Positives (False alarms): 114
 
-Precision: 0.1429 (14.29%)
-Recall: 0.5278 (52.78%)
-F1 Score: 0.2249
-Accuracy: 0.8303 (83.03%)
+    Precision: 0.1429 (14.29%)
+    Recall: 0.5278 (52.78%)
+    F1 Score: 0.2249
+    Accuracy: 0.8303 (83.03%)
+
+--- With class weights ------------------------
+
+    --- Best Model Hyperparameters ---
+    Max Depth: 6, Learning Rate: 0.03, Number of Trees: 200
+
+    --- Best Model Evaluation on Test Set ---
+    Test Set AUC: 0.8427343800478129
+    Test Set AUCPR: 0.2653636582186131
+
+    --- Metrics at Max F1 Threshold ---
+    True Positives (Strokes Caught): 22
+    False Negatives (Strokes Missed): 20
+    True Negatives (Correctly predicted no stroke): 687
+    False Positives (False alarms): 50
+
+    Precision: 0.3056 (30.56%)
+    Recall: 0.5238 (52.38%)
+    F1 Score: 0.3860
+    Macro F1: 0.6687
+    Weighted F1: 0.9210
+    Accuracy: 0.9101 (91.01%)
+
+    --- Final Model Evaluation (Reduced Features) ---
+    Reduced Model Test Set AUC: 0.8439620081411127
+    Reduced Model Test Set AUCPR: 0.27735041362679397
+
+    --- Metrics at Max F1 Threshold ---
+    True Positives (Strokes Caught): 19
+    False Negatives (Strokes Missed): 23
+    True Negatives (Correctly predicted no stroke): 684
+    False Positives (False alarms): 53
+
+    Precision: 0.2639 (26.39%)
+    Recall: 0.4524 (45.24%)
+    F1 Score: 0.3333
+    Macro F1: 0.6404
+    Weighted F1: 0.9143
+    Accuracy: 0.9024 (90.24%)
