@@ -19,7 +19,7 @@ print("=" * 60)
 
 # --- 1. DATA LOADING AND PREPARATION ---
 print("\n1. Loading and preparing data...")
-df = pd.read_csv("../data/healthcare-dataset-stroke-data.csv")
+df = pd.read_csv("data/healthcare-dataset-stroke-data.csv")
 
 # Preprocessing
 bmi_median = df['bmi'].median()
@@ -342,8 +342,8 @@ for name, frame in [("Train", train), ("Valid", valid), ("Test", test)]:
         'AUC': perf.auc(),
         'AUCPR': perf.aucpr(),
         'Logloss': perf.logloss(),
-        'Recall': perf.recall(threshold=opt_thresh),
-        'Precision': perf.precision(threshold=opt_thresh)
+        'Recall': perf.recall(thresholds=opt_thresh),
+        'Precision': perf.precision(thresholds=opt_thresh)
     }
 
 # Print performance comparison
