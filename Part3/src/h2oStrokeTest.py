@@ -77,22 +77,30 @@ print(f"Totals: No Stroke (0): {totalnostroke}, Stroke (1): {totalstroke}")
 # --- 4. DEFINE HYPERPARAMETER GRID ---
 
 # Define the hyperparameter search space
+# FIXED: Added more regularization options and better hyperparameter ranges
 hyper_params = {
-    'max_depth': [8],
-    'learn_rate': [0.03],
-    'ntrees': [200],
-    'sample_rate': [0.7],
-    'col_sample_rate': [0.9],
-    'min_rows': [2]
+    'max_depth': [3, 4, 5],              # REDUCED from [6, 7, 8] to prevent overfitting
+    'learn_rate': [0.01, 0.03, 0.05],    # Added slower learning rates
+    'ntrees': [100, 200, 300],           # Reduced range, will use early stopping
+    'sample_rate': [0.5, 0.6, 0.7],      # Added lower values for more regularization
+    'col_sample_rate': [0.7, 0.8, 0.9],  # Added lower values for more regularization
+    'min_rows': [10, 20]                 # INCREASED from [2] to prevent memorization
 }
 
 # --- 5. GBM MODEL TRAINING WITH GRID SEARCH AND BALANCING ---
 
 # Initialize the base GBM model estimator
+# FIXED: Reduced class_sampling_factors and added early stopping
 gbm_base = H2OGradientBoostingEstimator(
     seed=1234,
     #balance_classes=True,
-    class_sampling_factors=[1.0, 20.0],
+    class_sampling_factors=[1.0, 6.0],   # FIXED: Reduced from 20.0 to 6.0
+    
+    # ADDED: Early stopping to prevent overfitting
+    stopping_rounds=10,                   # Stop if no improvement for 10 rounds
+    stopping_metric="aucpr",              # Monitor AUCPR on validation set
+    stopping_tolerance=0.001,             # Minimum improvement threshold
+    
     nfolds=5,
     keep_cross_validation_predictions=True,
     fold_assignment="Stratified"
@@ -157,22 +165,22 @@ for model in grid_perf.models:
 import matplotlib.pyplot as plt
 sorted_data = sorted(zip(n_trees_list, train_aucpr_list, valid_aucpr_list, test_aucpr_list))
 n_trees_sorted, train_sorted, valid_sorted, test_sorted = zip(*sorted_data)
-'''
+
 # Plot AUCPR vs Number of Trees
 plt.figure(figsize=(10, 6))
 plt.plot(n_trees_sorted, train_sorted, marker='o', label='Train AUCPR', linewidth=2)
 plt.plot(n_trees_sorted, valid_sorted, marker='s', label='Validation AUCPR', linewidth=2)
 plt.plot(n_trees_sorted, test_sorted, marker='^', label='Test AUCPR', linewidth=2)
-plt.xlabel('Min Rows', fontsize=12)
+plt.xlabel('Number of Trees', fontsize=12)
 plt.ylabel('AUCPR', fontsize=12)
-plt.title('AUCPR vs Min Rows', fontsize=14, fontweight='bold')
+plt.title('AUCPR vs Number of Trees', fontsize=14, fontweight='bold')
 plt.legend(fontsize=11)
 plt.grid(True, alpha=0.3)
 plt.tight_layout()
-#plt.savefig('aucpr_vs_minRows.png', dpi=300)
-#print("\nPlot saved as 'aucpr_vs_ntrees.png'")
+plt.savefig('aucpr_vs_ntrees_fixed.png', dpi=300)
+print("\nPlot saved as 'aucpr_vs_ntrees_fixed.png'")
 #plt.show()
-'''
+
 # --- 6. MODEL EVALUATION AND SELECTION ---
 
 # Get the grid results and sort by AUC (Area Under the Curve)
@@ -186,7 +194,7 @@ best_gbm = grid_perf.models[0]
 # Evaluate the best model on the unseen test set
 performance = best_gbm.model_performance(test_data=test)
 
-
+'''
 predictions = best_gbm.predict(test)
 pred_df = predictions.as_data_frame()
 actual_df = test[y].as_data_frame()
@@ -211,45 +219,34 @@ plt.grid(True, alpha=0.3)
 plt.tight_layout()
 plt.savefig('simple_aucpr.png')
 plt.show()
-
-from sklearn.metrics import roc_curve, auc
-
-# Get predictions and actual values (you already have these)
-y_true = actual_df[y].values
-y_scores = pred_df['p1'].values
-
-# Calculate ROC curve
-fpr, tpr, roc_thresholds = roc_curve(y_true, y_scores)
-roc_auc = auc(fpr, tpr)
-
-# Plot ROC curve
-plt.figure(figsize=(8, 6))
-plt.plot(fpr, tpr, 'b-', linewidth=2, label=f'ROC AUC = {roc_auc:.3f}')
-plt.xlabel('False Positive Rate', fontsize=12)
-plt.ylabel('True Positive Rate', fontsize=12)
-plt.title('ROC Curve', fontsize=14)
-plt.legend(fontsize=11)
-plt.grid(True, alpha=0.3)
-plt.tight_layout()
-plt.savefig('roc_curve.png')
-plt.show()
+'''
 
 # --- 6. MODEL EVALUATION AND SELECTION (Continued) ---
 # Print final results
 print(f"\n--- Best Model Hyperparameters ---")
 print(f"Max Depth: {best_gbm.actual_params['max_depth']}, Learning Rate: {best_gbm.actual_params['learn_rate']}, Number of Trees: {best_gbm.actual_params['ntrees']}")
 
+# ADDED: Print overfitting analysis for all models
+print("\n--- Overfitting Analysis for All Models ---")
 count = 0
 for model in grid_perf.models:
     performance = model.model_performance(test_data=test)
+    
+    train_perf = model.model_performance(test_data=train)
+    valid_perf = model.model_performance(test_data=valid)
+    overfitting_gap = train_aucpr_list[count] - valid_aucpr_list[count]
 
-    print("\n--- Best Model Evaluation on Test Set ---")
+    print("\n--- Model Evaluation on Test Set ---")
     print(f"Trees: {n_trees_list[count]}")
     print(f"Max Depth: {max_depth_list[count]}")
     print(f"Learn Rate: {learn_rate_list[count]}")
     print(f"Sample Rate: {sample_rate_list[count]}")
     print(f"Col Sample Rate: {col_sample_rate_list[count]}")
     print(f"Min Rows: {min_rows_list[count]}")
+    print(f"Train AUCPR: {train_aucpr_list[count]:.4f}")
+    print(f"Valid AUCPR: {valid_aucpr_list[count]:.4f}")
+    print(f"Test AUCPR: {test_aucpr_list[count]:.4f}")
+    print(f"Overfitting Gap (Train-Valid): {overfitting_gap:.4f}")
     count += 1
     print(f"Test Set AUC: {performance.auc()}")
     print(f"Test Set AUCPR: {performance.aucpr()}")
@@ -329,7 +326,13 @@ final_gbm = H2OGradientBoostingEstimator(
     min_rows=best_row,
     seed=1234,
     #balance_classes=True,
-    class_sampling_factors=[1.0, 20.0],
+    class_sampling_factors=[1.0, 6.0],    # FIXED: Reduced from 20.0 to 6.0
+    
+    # ADDED: Early stopping
+    stopping_rounds=10,
+    stopping_metric="aucpr",
+    stopping_tolerance=0.001,
+    
     nfolds=5,
     keep_cross_validation_predictions=True,
     fold_assignment="Stratified"
@@ -350,6 +353,15 @@ final_performance = final_gbm.model_performance(test_data=test)
 print("\n--- Final Model Evaluation (Reduced Features) ---")
 print(f"Reduced Model Test Set AUC: {final_performance.auc()}")
 print(f"Reduced Model Test Set AUCPR: {final_performance.aucpr()}")
+
+# ADDED: Print generalization metrics
+final_train_perf = final_gbm.model_performance(test_data=train)
+final_valid_perf = final_gbm.model_performance(test_data=valid)
+print(f"\nGeneralization Analysis:")
+print(f"Train AUCPR: {final_train_perf.aucpr():.4f}")
+print(f"Valid AUCPR: {final_valid_perf.aucpr():.4f}")
+print(f"Test AUCPR: {final_performance.aucpr():.4f}")
+print(f"Overfitting Gap (Train-Valid): {final_train_perf.aucpr() - final_valid_perf.aucpr():.4f}")
 
 # --- FINAL MODEL EVALUATION (REVISED BLOCK) ---
 
@@ -399,290 +411,7 @@ print(f"AUCPR: {final_performance.aucpr()}")
 
 end_time = time.perf_counter()
 print("\ntime taken: ", (end_time - start_time))
-import matplotlib.pyplot as plt
-import numpy as np
-import pandas as pd
-from sklearn.calibration import calibration_curve
 
-# Add this after your model training and before shutdown
-
-# --- OVERFITTING VISUALIZATION CODE ---
-print("\n" + "="*60)
-print("OVERFITTING ANALYSIS")
-print("="*60)
-
-# 1. Get predictions for train, validation, and test sets
-train_preds = best_gbm.predict(train).as_data_frame()
-valid_preds = best_gbm.predict(valid).as_data_frame()
-test_preds = best_gbm.predict(test).as_data_frame()
-
-train_actual = train[y].as_data_frame()[y].values
-valid_actual = valid[y].as_data_frame()[y].values
-test_actual = test[y].as_data_frame()[y].values
-
-# 2. Create a comparison DataFrame of performance metrics
-performance_data = {
-    'Dataset': ['Train', 'Validation', 'Test'],
-    'AUC': [
-        best_gbm.model_performance(train).auc(),
-        best_gbm.model_performance(valid).auc(),
-        best_gbm.model_performance(test).auc()
-    ],
-    'AUCPR': [
-        best_gbm.model_performance(train).aucpr(),
-        best_gbm.model_performance(valid).aucpr(),
-        best_gbm.model_performance(test).aucpr()
-    ],
-    'Logloss': [
-        best_gbm.model_performance(train).logloss(),
-        best_gbm.model_performance(valid).logloss(),
-        best_gbm.model_performance(test).logloss()
-    ]
-}
-
-perf_df = pd.DataFrame(performance_data)
-print("\n--- Performance Comparison Across Datasets ---")
-print(perf_df.to_string())
-
-# 3. Calculate prediction distribution differences
-print("\n--- Prediction Distribution Analysis ---")
-print("Mean predicted probabilities for stroke class (p1):")
-print(f"Train: {train_preds['p1'].mean():.4f}")
-print(f"Validation: {valid_preds['p1'].mean():.4f}")
-print(f"Test: {test_preds['p1'].mean():.4f}")
-
-print("\nStandard deviation of predicted probabilities:")
-print(f"Train: {train_preds['p1'].std():.4f}")
-print(f"Validation: {valid_preds['p1'].std():.4f}")
-print(f"Test: {test_preds['p1'].std():.4f}")
-
-# 4. Create visualization plots
-fig, axes = plt.subplots(2, 3, figsize=(15, 10))
-
-# Plot 1: Performance metrics comparison
-x = np.arange(len(perf_df['Dataset']))
-width = 0.25
-axes[0, 0].bar(x - width, perf_df['AUC'], width, label='AUC', alpha=0.8)
-axes[0, 0].bar(x, perf_df['AUCPR'], width, label='AUCPR', alpha=0.8)
-axes[0, 0].bar(x + width, perf_df['Logloss'], width, label='Logloss', alpha=0.8)
-axes[0, 0].set_xlabel('Dataset')
-axes[0, 0].set_ylabel('Score')
-axes[0, 0].set_title('Performance Metrics Comparison')
-axes[0, 0].set_xticks(x)
-axes[0, 0].set_xticklabels(perf_df['Dataset'])
-axes[0, 0].legend()
-axes[0, 0].grid(True, alpha=0.3)
-
-# Plot 2: Distribution of predicted probabilities
-bins = np.linspace(0, 1, 21)
-axes[0, 1].hist(train_preds['p1'], bins=bins, alpha=0.5, label='Train', density=True)
-axes[0, 1].hist(valid_preds['p1'], bins=bins, alpha=0.5, label='Validation', density=True)
-axes[0, 1].hist(test_preds['p1'], bins=bins, alpha=0.5, label='Test', density=True)
-axes[0, 1].set_xlabel('Predicted Probability (p1)')
-axes[0, 1].set_ylabel('Density')
-axes[0, 1].set_title('Distribution of Predicted Probabilities')
-axes[0, 1].legend()
-axes[0, 1].grid(True, alpha=0.3)
-
-# Plot 3: Calibration curves
-for actual, preds, label, color in zip(
-    [train_actual, valid_actual, test_actual],
-    [train_preds['p1'].values, valid_preds['p1'].values, test_preds['p1'].values],
-    ['Train', 'Validation', 'Test'],
-    ['blue', 'green', 'red']
-):
-    prob_true, prob_pred = calibration_curve(actual, preds, n_bins=10)
-    axes[0, 2].plot(prob_pred, prob_true, marker='o', label=label, color=color)
-    
-axes[0, 2].plot([0, 1], [0, 1], 'k--', label='Perfect calibration', alpha=0.3)
-axes[0, 2].set_xlabel('Mean Predicted Probability')
-axes[0, 2].set_ylabel('Fraction of Positives')
-axes[0, 2].set_title('Calibration Curves')
-axes[0, 2].legend()
-axes[0, 2].grid(True, alpha=0.3)
-
-# Plot 4: Performance gap (overfitting metric)
-train_perf = perf_df.loc[perf_df['Dataset'] == 'Train'].iloc[0]
-valid_perf = perf_df.loc[perf_df['Dataset'] == 'Validation'].iloc[0]
-test_perf = perf_df.loc[perf_df['Dataset'] == 'Test'].iloc[0]
-
-gap_data = {
-    'AUC Gap (Train-Val)': train_perf['AUC'] - valid_perf['AUC'],
-    'AUCPR Gap (Train-Val)': train_perf['AUCPR'] - valid_perf['AUCPR'],
-    'Logloss Gap (Val-Train)': valid_perf['Logloss'] - train_perf['Logloss']
-}
-
-gap_series = pd.Series(gap_data)
-bars = axes[1, 0].bar(gap_series.index, gap_series.values)
-# Color bars based on direction (red for bad gaps)
-for i, (name, value) in enumerate(gap_series.items()):
-    if 'Logloss' in name:
-        color = 'red' if value > 0.1 else 'orange' if value > 0.05 else 'green'
-    else:
-        color = 'red' if value > 0.05 else 'orange' if value > 0.02 else 'green'
-    bars[i].set_color(color)
-    
-axes[1, 0].set_ylabel('Gap')
-axes[1, 0].set_title('Overfitting Indicators (Gaps between Train & Val)')
-axes[1, 0].tick_params(axis='x', rotation=45)
-axes[1, 0].grid(True, alpha=0.3, axis='y')
-
-# Plot 5: Learning curves by dataset size (simulated)
-# Let's check how performance changes with different thresholds
-thresholds = np.linspace(0, 1, 50)
-train_f1 = []
-valid_f1 = []
-test_f1 = []
-
-for threshold in thresholds:
-    train_pred_binary = (train_preds['p1'] > threshold).astype(int)
-    valid_pred_binary = (valid_preds['p1'] > threshold).astype(int)
-    test_pred_binary = (test_preds['p1'] > threshold).astype(int)
-    
-    # Calculate F1 manually
-    for preds, actual, f1_list in zip(
-        [train_pred_binary, valid_pred_binary, test_pred_binary],
-        [train_actual, valid_actual, test_actual],
-        [train_f1, valid_f1, test_f1]
-    ):
-        tp = ((preds == 1) & (actual == 1)).sum()
-        fp = ((preds == 1) & (actual == 0)).sum()
-        fn = ((preds == 0) & (actual == 1)).sum()
-        precision = tp / (tp + fp) if (tp + fp) > 0 else 0
-        recall = tp / (tp + fn) if (tp + fn) > 0 else 0
-        f1 = 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0
-        f1_list.append(f1)
-
-axes[1, 1].plot(thresholds, train_f1, label='Train F1', linewidth=2)
-axes[1, 1].plot(thresholds, valid_f1, label='Validation F1', linewidth=2)
-axes[1, 1].plot(thresholds, test_f1, label='Test F1', linewidth=2)
-axes[1, 1].set_xlabel('Classification Threshold')
-axes[1, 1].set_ylabel('F1 Score')
-axes[1, 1].set_title('F1 Score vs Threshold')
-axes[1, 1].legend()
-axes[1, 1].grid(True, alpha=0.3)
-
-# Plot 6: Confusion matrix comparison
-def plot_confusion_matrix_heatmap(ax, cm, title):
-    cm_array = np.array(cm.to_list())
-    im = ax.imshow(cm_array, cmap='Blues', interpolation='nearest')
-    ax.set_title(title)
-    ax.set_xticks([0, 1])
-    ax.set_yticks([0, 1])
-    ax.set_xticklabels(['Pred 0', 'Pred 1'])
-    ax.set_yticklabels(['Actual 0', 'Actual 1'])
-    
-    # Add text annotations
-    for i in range(2):
-        for j in range(2):
-            ax.text(j, i, str(int(cm_array[i, j])), 
-                   ha='center', va='center', 
-                   color='white' if cm_array[i, j] > cm_array.max()/2 else 'black',
-                   fontweight='bold')
-
-train_cm = best_gbm.model_performance(train).confusion_matrix()
-valid_cm = best_gbm.model_performance(valid).confusion_matrix()
-test_cm = best_gbm.model_performance(test).confusion_matrix()
-
-plot_confusion_matrix_heatmap(axes[1, 2], train_cm, 'Train Confusion Matrix')
-
-plt.tight_layout()
-plt.savefig('overfitting_analysis.png', dpi=300, bbox_inches='tight')
-plt.show()
-
-# 5. Statistical test for overfitting
-print("\n" + "="*60)
-print("STATISTICAL OVERFITTING TESTS")
-print("="*60)
-
-# Calculate differences in predictions
-from scipy import stats
-
-# Test 1: Compare prediction distributions
-print("\n1. Kolmogorov-Smirnov Test for Distribution Differences:")
-print("   (Tests if predictions come from same distribution)")
-ks_stat_train_val, ks_p_train_val = stats.ks_2samp(train_preds['p1'], valid_preds['p1'])
-ks_stat_train_test, ks_p_train_test = stats.ks_2samp(train_preds['p1'], test_preds['p1'])
-
-print(f"   Train vs Validation: KS Stat={ks_stat_train_val:.4f}, p-value={ks_p_train_val:.4f}")
-print(f"   Train vs Test: KS Stat={ks_stat_train_test:.4f}, p-value={ks_p_train_test:.4f}")
-
-# Test 2: Variance comparison
-print("\n2. Variance Comparison (F-test):")
-train_var = train_preds['p1'].var()
-valid_var = valid_preds['p1'].var()
-test_var = test_preds['p1'].var()
-
-print(f"   Train Variance: {train_var:.6f}")
-print(f"   Validation Variance: {valid_var:.6f}")
-print(f"   Test Variance: {test_var:.6f}")
-print(f"   Train/Validation Variance Ratio: {train_var/valid_var:.2f}")
-
-# Test 3: Confidence intervals for performance metrics
-print("\n3. Performance Degradation Analysis:")
-auc_gap = train_perf['AUC'] - test_perf['AUC']
-aucpr_gap = train_perf['AUCPR'] - test_perf['AUCPR']
-
-print(f"   AUC Drop (Train to Test): {auc_gap:.4f}")
-print(f"   AUCPR Drop (Train to Test): {aucpr_gap:.4f}")
-print(f"   Logloss Increase (Train to Test): {test_perf['Logloss'] - train_perf['Logloss']:.4f}")
-
-# Calculate overfitting severity score
-overfitting_score = (
-    auc_gap * 2 +  # AUC gap weighted more
-    aucpr_gap * 1.5 +  # AUCPR gap
-    (test_perf['Logloss'] - train_perf['Logloss']) * 0.5 +  # Logloss increase
-    abs(train_preds['p1'].mean() - test_preds['p1'].mean()) * 3  # Prediction shift
-)
-
-print(f"\n4. Overall Overfitting Severity Score: {overfitting_score:.4f}")
-if overfitting_score > 0.3:
-    print("   ⚠️  SEVERE OVERFITTING DETECTED")
-elif overfitting_score > 0.15:
-    print("   ⚠️  MODERATE OVERFITTING DETECTED")
-elif overfitting_score > 0.05:
-    print("   ⚠️  MILD OVERFITTING DETECTED")
-else:
-    print("   ✓ Minimal overfitting detected")
-
-# 6. Recommendations based on analysis
-print("\n" + "="*60)
-print("RECOMMENDATIONS TO REDUCE OVERFITTING")
-print("="*60)
-print("Based on the analysis, here are the main issues:")
-
-print("\n1. CLASS BALANCING:")
-print("   - Current: class_sampling_factors=[1.0, 20.0]")
-print("   - Issue: 20x oversampling of minority class is too aggressive")
-print("   - Recommendation: Reduce to [1.0, 3.0-5.0] or use SMOTE")
-
-print("\n2. MODEL COMPLEXITY:")
-print("   - Current: max_depth=8")
-print("   - Issue: Too deep for imbalanced dataset")
-print("   - Recommendation: Reduce to max_depth=3-5")
-
-print("\n3. REGULARIZATION:")
-print("   - Missing: No regularization parameters")
-print("   - Add: min_split_improvement=1e-5, histogram_type='Random'")
-print("   - Add: reg_lambda=1.0, reg_alpha=0.5")
-
-print("\n4. EARLY STOPPING:")
-print("   - Missing: No early stopping")
-print("   - Add: stopping_rounds=10, stopping_metric='AUCPR'")
-print("   - Add: stopping_tolerance=0.001")
-
-print("\n5. GRID SEARCH IMPROVEMENT:")
-print("   - Current: Only testing single values")
-print("   - Recommendation: Test ranges:")
-print("     - learn_rate: [0.01, 0.03, 0.05]")
-print("     - max_depth: [3, 5, 7]")
-print("     - sample_rate: [0.7, 0.8, 0.9]")
-print("     - col_sample_rate: [0.7, 0.8, 0.9]")
-
-print("\n6. VALIDATION STRATEGY:")
-print("   - Current: Simple holdout")
-print("   - Recommendation: Use repeated stratified k-fold")
-print("   - Or: Increase validation size to 20-30%")
 
 # --- 8. SHUTDOWN ---
 

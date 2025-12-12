@@ -1,0 +1,56 @@
+=== LOADING AND PREPARING DATA ===
+
+=== H2O INITIALIZATION ===
+Checking whether there is an H2O instance running at http://localhost:54321..... not found.
+Attempting to start a local H2O server...
+  Java Version: openjdk version "1.8.0_472"; OpenJDK Runtime Environment (build 1.8.0_472-8u472-ga-1~22.04-b08); OpenJDK 64-Bit Server VM (build 25.472-b08, mixed mode)
+  Starting server from /home/takahashijake/.local/lib/python3.10/site-packages/h2o/backend/bin/h2o.jar
+  Ice root: /tmp/tmp5bmqhviz
+  JVM stdout: /tmp/tmp5bmqhviz/h2o_takahashijake_started_from_python.out
+  JVM stderr: /tmp/tmp5bmqhviz/h2o_takahashijake_started_from_python.err
+  Server is running at http://127.0.0.1:54321
+Connecting to H2O server at http://127.0.0.1:54321 ... successful.
+--------------------------  ------------------------------------
+H2O_cluster_uptime:         01 secs
+H2O_cluster_timezone:       America/Los_Angeles
+H2O_data_parsing_timezone:  UTC
+H2O_cluster_version:        3.46.0.9
+H2O_cluster_version_age:    17 days
+H2O_cluster_name:           H2O_from_python_takahashijake_sanahg
+H2O_cluster_total_nodes:    1
+H2O_cluster_free_memory:    7.096 Gb
+H2O_cluster_total_cores:    8
+H2O_cluster_allowed_cores:  8
+H2O_cluster_status:         locked, healthy
+H2O_connection_url:         http://127.0.0.1:54321
+H2O_connection_proxy:       {"http": null, "https": null}
+H2O_internal_security:      False
+Python_version:             3.10.12 final
+--------------------------  ------------------------------------
+Parse progress: |████████████████████████████████████████████████████████████████| (done) 100%
+
+=== PERFORMING STRATIFIED SPLITTING ===
+Parse progress: |████████████████████████████████████████████████████████████████| (done) 100%
+Parse progress: |████████████████████████████████████████████████████████████████| (done) 100%
+Parse progress: |████████████████████████████████████████████████████████████████| (done) 100%
+
+✅ STRATIFIED CLASS DISTRIBUTION:
+Train: No Stroke=3402, Stroke=174 ( 4.9% stroke)
+Valid: No Stroke= 729, Stroke= 37 ( 4.8% stroke)
+Test : No Stroke= 729, Stroke= 38 ( 5.0% stroke)
+
+Features kept for modeling: ['gender', 'age', 'hypertension', 'heart_disease', 'work_type', 'avg_glucose_level', 'bmi', 'smoking_status']
+
+=== DEFINING REGULARIZED HYPERPARAMETER GRID ===
+Hyperparameter search space:
+  max_depth: [3, 4, 5]
+  learn_rate: [0.005, 0.01, 0.02]
+  sample_rate: [0.6, 0.7]
+  col_sample_rate: [0.6, 0.7]
+  min_rows: [15, 25, 35]
+
+=== TRAINING MODELS WITH CLINICAL SAFEGUARDS ===
+
+Starting H2O GBM Grid Search with Class Balancing and Early Stopping...
+Closing connection _sid_932d at exit
+H2O session _sid_932d closed.

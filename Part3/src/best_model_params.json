@@ -1,0 +1,13 @@
+{
+  "max_depth": 4.0,
+  "learn_rate": 0.03,
+  "sample_rate": 0.7,
+  "col_sample_rate": 0.8,
+  "min_rows": 30.0,
+  "optimal_threshold": 0.0690627756173693,
+  "recall": 0.7631578947368421,
+  "precision": 0.18831168831168832,
+  "f2_score": 0.4738562091503268,
+  "aucpr": 0.19900548431275775,
+  "roc_auc": 0.860353043101581
+}
