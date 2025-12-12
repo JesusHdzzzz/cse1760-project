@@ -108,7 +108,7 @@ gbm_base = H2OGradientBoostingEstimator(
     # No CV for speed
     nfolds=0,
     score_tree_interval=20       # Less frequent scoring
-)
+)r
 
 # Simple Cartesian search
 search_criteria = {
