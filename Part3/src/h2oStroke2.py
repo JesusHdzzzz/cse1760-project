@@ -4,403 +4,193 @@ from h2o.estimators.gbm import H2OGradientBoostingEstimator
 from h2o.grid.grid_search import H2OGridSearch
 import warnings
 import time
+from sklearn.metrics import precision_recall_curve, average_precision_score, roc_curve, auc, confusion_matrix
+import matplotlib.pyplot as plt
+import numpy as np
 
 warnings.filterwarnings('ignore', category=FutureWarning)
 
 start_time = time.perf_counter()
-# --- 1. DATA LOADING AND PREPARATION (PANDAS) ---
 
-# Load the original dataset
 df = pd.read_csv("data/healthcare-dataset-stroke-data.csv")
 
-# Fill in the missing bmi values with the median bmi value
 bmi_median = df['bmi'].median()
 df['bmi'].fillna(bmi_median, inplace=True)
 
-# Drop rows where 'bmi' is missing
-#df.dropna(subset=['bmi'], inplace=True)
-
-# Drop the 'Other' gender row
 df = df[df['gender'] != 'Other']
 
-# --- 2. H2O SETUP AND DATA LOADING ---
-
-# Initialize H2O cluster
 h2o.init(max_mem_size="8G")
 
-# Convert the cleaned pandas DataFrame to an H2O Frame
 h2o_df = h2o.H2OFrame(df)
 
-# Define predictor and target variables
 y = 'stroke'
 X = h2o_df.columns
 X.remove('id')
 X.remove(y)
 
-# Convert the target variable to a factor (essential for classification)
 h2o_df[y] = h2o_df[y].asfactor()
 
-# --- 3. DATA SPLITTING ---
+train, test = h2o_df.split_frame(ratios=[0.8], seed = 1234)
 
-# Split the H2O Frame into train, validation, and test sets
-train, valid, test = h2o_df.split_frame(
-    ratios=[0.7, 0.15],
-    seed = 1234
-)
-
-features_to_drop = ['ever_married', 'Residence_type']
-
-# Create the reduced list of predictors (X_reduced)
-X_reduced = [feature for feature in X if feature not in features_to_drop]
-
-# Check class distribution in each split
 print("\n--- Class Distribution in Splits ---")
 print("\nTraining Set:")
 train_dist = train[y].table()
 train_counts = train_dist.as_data_frame()
-print(f"No Stroke (0): {int(train_counts.iloc[0, 1])}, Stroke (1): {int(train_counts.iloc[1, 1])}")
-
-print("\nValidation Set:")
-valid_dist = valid[y].table()
-valid_counts = valid_dist.as_data_frame()
-print(f"No Stroke (0): {int(valid_counts.iloc[0, 1])}, Stroke (1): {int(valid_counts.iloc[1, 1])}")
+print(f"No Stroke: {int(train_counts.iloc[0, 1])}, Stroke: {int(train_counts.iloc[1, 1])}")
 
 print("\nTest Set:")
 test_dist = test[y].table()
 test_counts = test_dist.as_data_frame()
-print(f"No Stroke (0): {int(test_counts.iloc[0, 1])}, Stroke (1): {int(test_counts.iloc[1, 1])}")
+print(f"No Stroke: {int(test_counts.iloc[0, 1])}, Stroke: {int(test_counts.iloc[1, 1])}")
 
-totalnostroke = int(train_counts.iloc[0, 1]) + int(valid_counts.iloc[0, 1]) + int(test_counts.iloc[0, 1])
-totalstroke = int(train_counts.iloc[1, 1]) + int(valid_counts.iloc[1, 1]) + int(test_counts.iloc[1, 1])
-print(f"Totals: No Stroke (0): {totalnostroke}, Stroke (1): {totalstroke}")
+totalnostroke = int(train_counts.iloc[0, 1]) + int(test_counts.iloc[0, 1])
+totalstroke = int(train_counts.iloc[1, 1]) + int(test_counts.iloc[1, 1])
+print(f"Totals: No Stroke: {totalnostroke}, Stroke: {totalstroke}")
 
-# --- 4. DEFINE HYPERPARAMETER GRID ---
-
-# Define the hyperparameter search space
 hyper_params = {
-    'max_depth': [8],
-    'learn_rate': [0.03],
-    'ntrees': [200],
-    'sample_rate': [0.7],
-    'col_sample_rate': [0.9],
-    'min_rows': [2]
+    'max_depth': [4, 6, 8],
+    'learn_rate': [0.01, 0.03, 0.05],
+    'ntrees': [10, 20, 30, 40, 50, 60, 70, 80, 90, 100],
+    'sample_rate': [0.7, 0.8, 0.9],
+    'col_sample_rate': [0.7, 0.8, 0.9],
+    'min_rows': [2, 3, 4]
 }
 
-# --- 5. GBM MODEL TRAINING WITH GRID SEARCH AND BALANCING ---
-
-# Initialize the base GBM model estimator
 gbm_base = H2OGradientBoostingEstimator(
     seed=1234,
-    #balance_classes=True,
-    class_sampling_factors=[1.0, 20.0],
-    nfolds=5,
+    balance_classes=True,
+    class_sampling_factors=[1.0, 11.0],
+    nfolds=2,
     keep_cross_validation_predictions=True,
     fold_assignment="Stratified"
 )
 
-# Initialize the Grid Search
 grid = H2OGridSearch(
     model=gbm_base,
     hyper_params=hyper_params,
     search_criteria={'strategy': "Cartesian"}
 )
 
-# Train the Grid Search
-print("\nStarting H2O GBM Grid Search with Class Balancing...")
-grid.train(
-    x=X_reduced,
-    y=y,
-    training_frame=train,
-    validation_frame=valid
-)
+grid.train(x=X, y=y, training_frame=train)
+
+rows = []
+for m in grid.models:
+    ntrees = m.actual_params["ntrees"]
+    test_aucpr = m.model_performance(test_data=test).aucpr()
+    rows.append((ntrees, test_aucpr))
+
+best_by_ntrees = {}
+for ntrees, aucpr in rows:
+    best_by_ntrees[ntrees] = max(best_by_ntrees.get(ntrees, -1), aucpr)
+
+nt_list = sorted(best_by_ntrees.keys())
+aucpr_list = [best_by_ntrees[n] for n in nt_list]
+
+plt.figure(figsize=(10, 6))
+plt.plot(nt_list, aucpr_list, marker='o', linewidth=2)
+plt.xlabel("Number of Trees (ntrees)")
+plt.ylabel("Test AUCPR")
+plt.title("Test AUCPR vs Number of Trees")
+plt.grid(True, alpha=0.3)
+plt.tight_layout()
+#plt.savefig('aucpr_vs_ntrees.png')
+plt.show()
 
 grid_perf = grid.get_grid(sort_by="aucpr", decreasing=True)
 
-# Extract ntrees and AUCPR for each model
-n_trees_list = []
-max_depth_list = []
-learn_rate_list = []
-sample_rate_list = []
-col_sample_rate_list = []
-min_rows_list = []
-train_aucpr_list = []
-valid_aucpr_list = []
-test_aucpr_list = []
-
-print("\n--- Extracting results from Grid Search ---")
-for model in grid_perf.models:
-    ntrees = model.actual_params['ntrees']
-    max_depth = model.actual_params['max_depth']
-    learn_rate = model.actual_params['learn_rate']
-    sample_rate = model.actual_params['sample_rate']
-    col_sample_rate = model.actual_params['col_sample_rate']
-    min_rows = model.actual_params['min_rows']
-    
-    # Get performance on each dataset
-    train_perf = model.model_performance(test_data=train)
-    valid_perf = model.model_performance(test_data=valid)
-    test_perf = model.model_performance(test_data=test)
-    
-    n_trees_list.append(ntrees)
-    max_depth_list.append(max_depth)
-    learn_rate_list.append(learn_rate)
-    sample_rate_list.append(sample_rate)
-    col_sample_rate_list.append(col_sample_rate)
-    min_rows_list.append(min_rows)
-    train_aucpr_list.append(train_perf.aucpr())
-    valid_aucpr_list.append(valid_perf.aucpr())
-    test_aucpr_list.append(test_perf.aucpr())
-    
-    #print(f"Trees: {ntrees}, Train: {train_perf.aucpr():.4f}, Valid: {valid_perf.aucpr():.4f}, Test: {test_perf.aucpr():.4f}")
-
-# Sort by number of trees for plotting
-import matplotlib.pyplot as plt
-sorted_data = sorted(zip(n_trees_list, train_aucpr_list, valid_aucpr_list, test_aucpr_list))
-n_trees_sorted, train_sorted, valid_sorted, test_sorted = zip(*sorted_data)
-'''
-# Plot AUCPR vs Number of Trees
-plt.figure(figsize=(10, 6))
-plt.plot(n_trees_sorted, train_sorted, marker='o', label='Train AUCPR', linewidth=2)
-plt.plot(n_trees_sorted, valid_sorted, marker='s', label='Validation AUCPR', linewidth=2)
-plt.plot(n_trees_sorted, test_sorted, marker='^', label='Test AUCPR', linewidth=2)
-plt.xlabel('Min Rows', fontsize=12)
-plt.ylabel('AUCPR', fontsize=12)
-plt.title('AUCPR vs Min Rows', fontsize=14, fontweight='bold')
-plt.legend(fontsize=11)
-plt.grid(True, alpha=0.3)
-plt.tight_layout()
-#plt.savefig('aucpr_vs_minRows.png', dpi=300)
-#print("\nPlot saved as 'aucpr_vs_ntrees.png'")
-#plt.show()
-'''
-# --- 6. MODEL EVALUATION AND SELECTION ---
-
-# Get the grid results and sort by AUC (Area Under the Curve)
-#grid_perf = grid.get_grid(sort_by="aucpr", decreasing=True)
 print("\n--- Top Models from Grid Search (Sorted by AUCPR) ---")
-#print(grid_perf)
+print(grid_perf)
 
-# Select the best model based on validation AUCPR
 best_gbm = grid_perf.models[0]
 
-# Evaluate the best model on the unseen test set
-performance = best_gbm.model_performance(test_data=test)
+cv_pred = best_gbm.cross_validation_holdout_predictions()
+cv_pred_df = cv_pred.as_data_frame()
+cv_true = train[y].as_data_frame()[y].values
+cv_scores = cv_pred_df["p1"].values
 
+thresholds = np.linspace(0.01, 0.99, 200)
 
-predictions = best_gbm.predict(test)
-pred_df = predictions.as_data_frame()
-actual_df = test[y].as_data_frame()
+best_f2 = -1
+best_threshold = None
+best_cm = None
 
-from sklearn.metrics import precision_recall_curve, average_precision_score
-import matplotlib.pyplot as plt
+for t in thresholds:
+    y_pred = (cv_scores >= t).astype(int)
 
-y_true = actual_df[y].values
-y_scores = pred_df['p1'].values
+    tn, fp, fn, tp = confusion_matrix(cv_true, y_pred, labels=[0, 1]).ravel()
 
-precision, recall, thresholds = precision_recall_curve(y_true, y_scores)
-aucpr = average_precision_score(y_true, y_scores)
+    precision = tp / (tp + fp) if (tp + fp) > 0 else 0
+    recall = tp / (tp + fn) if (tp + fn) > 0 else 0
 
-# Plot
+    f2 = 0
+    if precision + recall > 0:
+        f2 = (5 * precision * recall) / (4 * precision + recall)
+    else:
+        f2 = 0
+
+    if f2 > best_f2:
+        best_f2 = f2
+        best_threshold = t
+        best_cm = (tn, fp, fn, tp)
+
+test_pred = best_gbm.predict(test).as_data_frame()["p1"].values
+y_test = test[y].as_data_frame()[y].values
+y_test_pred = (test_pred >= best_threshold).astype(int)
+tn, fp, fn, tp = confusion_matrix(y_test, y_test_pred, labels=[0, 1]).ravel()
+
+precision = tp / (tp + fp)
+recall = tp / (tp + fn)
+accuracy = (tp + tn) / (tp + tn + fp + fn)
+
+print("\n--- Best F2 Threshold ---")
+print(f"Threshold: {best_threshold:.3f}")
+print(f"F2 Score: {best_f2:.4f}")
+
+print("\n--- Confusion Matrix at F2 Threshold ---")
+print(f"TN: {tn}, FP: {fp}")
+print(f"FN: {fn}, TP: {tp}")
+
+print("\n--- Metrics ---")
+print(f"Precision: {precision:.4f}")
+print(f"Recall: {recall:.4f}")
+print(f"Accuracy: {accuracy:.4f}")
+
+prec, rec, pr_thresholds = precision_recall_curve(y_test, test_pred)
+aucpr = average_precision_score(y_test, test_pred)
+
 plt.figure(figsize=(8, 6))
-plt.plot(recall, precision, 'b-', linewidth=2, label=f'AUCPR = {aucpr:.3f}')
-plt.xlabel('Recall', fontsize=12)
-plt.ylabel('Precision', fontsize=12)
-plt.title('Precision-Recall Curve', fontsize=14)
-plt.legend(fontsize=11)
+plt.plot(rec, prec, linewidth=2, label=f"AUCPR = {aucpr:.3f}")
+plt.xlabel("Recall")
+plt.ylabel("Precision")
+plt.title("Precision–Recall Curve (Best GBM)")
 plt.grid(True, alpha=0.3)
+plt.legend()
 plt.tight_layout()
 #plt.savefig('simple_aucpr.png')
 plt.show()
 
-from sklearn.metrics import roc_curve, auc
-
-# Get predictions and actual values (you already have these)
-y_true = actual_df[y].values
-y_scores = pred_df['p1'].values
-
-# Calculate ROC curve
-fpr, tpr, roc_thresholds = roc_curve(y_true, y_scores)
+fpr, tpr, roc_thresholds = roc_curve(y_test, test_pred)
 roc_auc = auc(fpr, tpr)
 
-# Plot ROC curve
 plt.figure(figsize=(8, 6))
-plt.plot(fpr, tpr, 'b-', linewidth=2, label=f'ROC AUC = {roc_auc:.3f}')
-plt.xlabel('False Positive Rate', fontsize=12)
-plt.ylabel('True Positive Rate', fontsize=12)
-plt.title('ROC Curve', fontsize=14)
-plt.legend(fontsize=11)
+plt.plot(fpr, tpr, linewidth=2, label=f"AUC = {roc_auc:.3f}")
+plt.plot([0, 1], [0, 1], linestyle="--", linewidth=1)  # chance line
+plt.xlabel("False Positive Rate")
+plt.ylabel("True Positive Rate")
+plt.title("ROC Curve (Best GBM)")
 plt.grid(True, alpha=0.3)
+plt.legend()
 plt.tight_layout()
 #plt.savefig('roc_curve.png')
 plt.show()
 
-# --- 6. MODEL EVALUATION AND SELECTION (Continued) ---
-# Print final results
+print(f"Best model test AUCPR: {aucpr:.4f}")
+print(f"Best model test AUC:   {roc_auc:.4f}")
+
 print(f"\n--- Best Model Hyperparameters ---")
-print(f"Max Depth: {best_gbm.actual_params['max_depth']}, Learning Rate: {best_gbm.actual_params['learn_rate']}, Number of Trees: {best_gbm.actual_params['ntrees']}")
-
-count = 0
-for model in grid_perf.models:
-    performance = model.model_performance(test_data=test)
-
-    print("\n--- Best Model Evaluation on Test Set ---")
-    print(f"Trees: {n_trees_list[count]}")
-    print(f"Max Depth: {max_depth_list[count]}")
-    print(f"Learn Rate: {learn_rate_list[count]}")
-    print(f"Sample Rate: {sample_rate_list[count]}")
-    print(f"Col Sample Rate: {col_sample_rate_list[count]}")
-    print(f"Min Rows: {min_rows_list[count]}")
-    count += 1
-    print(f"Test Set AUC: {performance.auc()}")
-    print(f"Test Set AUCPR: {performance.aucpr()}")
-    #print(f"Test Set Gini: {performance.gini()}")
-    #print(f"Test Set F1 Score: {performance.f1()}")
-
-    cm = performance.confusion_matrix()
-    print("\n--- Confusion Matrix ---")
-    print(cm)
-
-    cm_table = cm.to_list()
-    tn = cm_table[0][0]  # True Negatives
-    fp = cm_table[0][1]  # False Positives
-    fn = cm_table[1][0]  # False Negatives
-    tp = cm_table[1][1]  # True Positives
-
-    # Calculate metrics manually
-    precision = tp / (tp + fp) if (tp + fp) > 0 else 0
-    recall = tp / (tp + fn) if (tp + fn) > 0 else 0
-    f1 = 2 * (precision * recall) / (precision + recall) if (precision + recall) > 0 else 0
-    accuracy = (tp + tn) / (tp + tn + fp + fn)
-
-    precision_class0 = tn / (tn + fn) if (tn + fn) > 0 else 0
-    recall_class0 = tn / (tn + fp) if (tn + fp) > 0 else 0
-    f1_class0 = 2 * (precision_class0 * recall_class0) / (precision_class0 + recall_class0) if (precision_class0 + recall_class0) > 0 else 0
-    macro_f1 = (f1 + f1_class0) / 2
-
-    total = tp + tn + fp + fn
-    weighted_f1 = (f1_class0 * (tn + fp) + f1 * (tp + fn)) / total
-
-    print("\n--- Metrics at Max F1 Threshold ---")
-    print(f"True Positives (Strokes Caught): {tp}")
-    print(f"False Negatives (Strokes Missed): {fn}")
-    print(f"True Negatives (Correctly predicted no stroke): {tn}")
-    print(f"False Positives (False alarms): {fp}")
-    print(f"\nPrecision: {precision:.4f} ({precision*100:.2f}%)")
-    print(f"Recall: {recall:.4f} ({recall*100:.2f}%)")
-    print(f"F1 Score: {f1:.4f}")
-    print(f"Macro F1: {macro_f1:.4f}")
-    print(f"Weighted F1: {weighted_f1:.4f}")
-    print(f"Accuracy: {accuracy:.4f} ({accuracy*100:.2f}%)")
-
-# --- 7. FEATURE SELECTION AND FINAL MODEL TRAINING ---
-
-# 7.1. Identify Features to Keep (Filtering based on Importance > 0)
-
-# Create a list of features to drop (those with 0 importance from previous output)
-features_to_drop = ['ever_married', 'Residence_type']
-
-# Create the reduced list of predictors (X_reduced)
-X_reduced = [feature for feature in X if feature not in features_to_drop]
-
-print(f"\nFeatures dropped based on 0 importance: {features_to_drop}")
-print(f"Features kept for final model: {X_reduced}")
-
-# 7.2. Extract Best Hyperparameters
-
-# Best parameters found in grid search were:
-best_depth = best_gbm.actual_params['max_depth']
-best_rate = best_gbm.actual_params['learn_rate']
-best_trees = best_gbm.actual_params['ntrees']
-best_sample = best_gbm.actual_params['sample_rate']
-best_col = best_gbm.actual_params['col_sample_rate']
-best_row = best_gbm.actual_params['min_rows']
-
-# 7.3. Train Final Model on Reduced Feature Set
-
-print("\nTraining Final GBM Model with Reduced Feature Set...")
-
-final_gbm = H2OGradientBoostingEstimator(
-    # Use the best hyperparameters
-    ntrees=best_trees,
-    max_depth=best_depth,
-    learn_rate=best_rate,
-    sample_rate=best_sample,
-    col_sample_rate=best_col,
-    min_rows=best_row,
-    seed=1234,
-    #balance_classes=True,
-    class_sampling_factors=[1.0, 20.0],
-    nfolds=5,
-    keep_cross_validation_predictions=True,
-    fold_assignment="Stratified"
-)
-
-# Train using the reduced feature set
-final_gbm.train(
-    x=X_reduced,
-    y=y,
-    training_frame=train,
-    validation_frame=valid
-)
-
-# 7.4. Evaluate Reduced Model (If using full train set, skip test evaluation)
-# To maintain evaluation consistency, we'll evaluate the reduced model on the 'test' split.
-final_performance = final_gbm.model_performance(test_data=test)
-
-print("\n--- Final Model Evaluation (Reduced Features) ---")
-print(f"Reduced Model Test Set AUC: {final_performance.auc()}")
-print(f"Reduced Model Test Set AUCPR: {final_performance.aucpr()}")
-
-# --- FINAL MODEL EVALUATION (REVISED BLOCK) ---
-
-print("\n--- Final Model Classification Metrics ---")
-
-# Get the confusion matrix first
-cm = final_performance.confusion_matrix()
-print("\n--- Confusion Matrix ---")
-print(cm)
-
-cm_table = cm.to_list()
-tn = cm_table[0][0]  # True Negatives
-fp = cm_table[0][1]  # False Positives
-fn = cm_table[1][0]  # False Negatives
-tp = cm_table[1][1]  # True Positives
-
-# Calculate metrics manually
-precision = tp / (tp + fp) if (tp + fp) > 0 else 0
-recall = tp / (tp + fn) if (tp + fn) > 0 else 0
-f1 = 2 * (precision * recall) / (precision + recall) if (precision + recall) > 0 else 0
-accuracy = (tp + tn) / (tp + tn + fp + fn)
-
-precision_class0 = tn / (tn + fn) if (tn + fn) > 0 else 0
-recall_class0 = tn / (tn + fp) if (tn + fp) > 0 else 0
-f1_class0 = 2 * (precision_class0 * recall_class0) / (precision_class0 + recall_class0) if (precision_class0 + recall_class0) > 0 else 0
-macro_f1 = (f1 + f1_class0) / 2
-
-total = tp + tn + fp + fn
-weighted_f1 = (f1_class0 * (tn + fp) + f1 * (tp + fn)) / total
-
-print("\n--- Metrics at Max F1 Threshold ---")
-print(f"True Positives (Strokes Caught): {tp}")
-print(f"False Negatives (Strokes Missed): {fn}")
-print(f"True Negatives (Correctly predicted no stroke): {tn}")
-print(f"False Positives (False alarms): {fp}")
-print(f"\nPrecision: {precision:.4f} ({precision*100:.2f}%)")
-print(f"Recall: {recall:.4f} ({recall*100:.2f}%)")
-print(f"F1 Score: {f1:.4f}")
-print(f"Macro F1: {macro_f1:.4f}")
-print(f"Weighted F1: {weighted_f1:.4f}")
-print(f"Accuracy: {accuracy:.4f} ({accuracy*100:.2f}%)")
-
-# Get standard metrics
-print("\n--- Performance Metrics ---")
-print(f"AUC: {final_performance.auc()}")
-print(f"AUCPR: {final_performance.aucpr()}")
+print(f"Max Depth: {best_gbm.actual_params['max_depth']}, Learning Rate: {best_gbm.actual_params['learn_rate']}, Number of Trees: {best_gbm.actual_params['ntrees']}, Sample Rate: {best_gbm.actual_params['sample_rate']}, Col Sample Rate: {best_gbm.actual_params['col_sample_rate']}, Min Rows: {best_gbm.actual_params['min_rows']}")
 
 end_time = time.perf_counter()
 print("\ntime taken: ", (end_time - start_time))
-
-
-# --- 8. SHUTDOWN ---
 
 h2o.cluster().shutdown()

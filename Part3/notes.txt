@@ -139,3 +139,42 @@ Accuracy: 0.8460 (84.60%)
 339  [age, hypertension, heart_disease, ever_marrie...           5  0.211690  0.836214
 129           [age, ever_married, bmi, smoking_status]           4  0.201274  0.816633
 343  [age, hypertension, heart_disease, work_type, ...           5  0.197844  0.828247
+
+
+No CV
+--- Best F2 Threshold ---
+Threshold: 0.044
+F2 Score: 0.3571
+
+--- Confusion Matrix at F2 Threshold ---
+TN: 531, FP: 206
+FN: 8, TP: 34
+
+--- Metrics ---
+Precision: 0.1417
+Recall: 0.8095
+Accuracy: 0.7253
+
+--- Best Model Hyperparameters ---
+Max Depth: 4, Learning Rate: 0.01, Number of Trees: 30
+
+time taken:  236.82025045796763
+
+2-fold CV
+--- Best F2 Threshold ---
+Threshold: 0.040
+F2 Score: 0.3910
+
+--- Confusion Matrix at F2 Threshold ---
+TN: 718, FP: 239
+FN: 10, TP: 41
+
+--- Metrics ---
+Precision: 0.1464
+Recall: 0.8039
+Accuracy: 0.7530
+
+--- Best Model Hyperparameters ---
+Max Depth: 4, Learning Rate: 0.05, Number of Trees: 70
+
+time taken:  337.12129245908
