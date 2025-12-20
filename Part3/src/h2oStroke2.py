@@ -48,12 +48,12 @@ totalstroke = int(train_counts.iloc[1, 1]) + int(test_counts.iloc[1, 1])
 print(f"Totals: No Stroke: {totalnostroke}, Stroke: {totalstroke}")
 
 hyper_params = {
-    'max_depth': [4, 6, 8],
-    'learn_rate': [0.01, 0.03, 0.05],
-    'ntrees': [10, 20, 30, 40, 50, 60, 70, 80, 90, 100],
-    'sample_rate': [0.7, 0.8, 0.9],
-    'col_sample_rate': [0.7, 0.8, 0.9],
-    'min_rows': [2, 3, 4]
+    'max_depth': [4,],
+    'learn_rate': [0.05],
+    'ntrees': [70],
+    'sample_rate': [0.7],
+    'col_sample_rate': [0.9],
+    'min_rows': [2]
 }
 
 gbm_base = H2OGradientBoostingEstimator(

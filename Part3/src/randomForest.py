@@ -35,9 +35,9 @@ print(f"Testing set size: {len(X_test)} samples")
 rf_base = RandomForestClassifier(random_state=42, class_weight='balanced')
 
 param_grid = {
-    'n_estimators': [50, 100, 150, 200, 250, 300, 350, 400, 450, 500, 550, 600],
-    'max_depth': [5, 7, 10, 15],
-    'min_samples_split': [2, 5, 10]
+    'n_estimators': [50],
+    'max_depth': [5],
+    'min_samples_split': [5]
 }
 
 grid_search_aupr = GridSearchCV(
