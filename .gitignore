@@ -1,18 +1,68 @@
-C
-C
-ear 
-:Wq
-:w
-A
-A
-B
-B
-B
-B
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
 
+# Jupyter
+.ipynb_checkpoints/
 
-C
-C
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
 
+# Environment variables / secrets
+.env
+.env.*
+*.pem
+*.key
+*.crt
 
-*.mait
+# IDE / editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS-generated files
+.DS_Store
+Thumbs.db
+
+# Python packaging/build artifacts
+build/
+dist/
+*.egg-info/
+
+# Test / coverage artifacts
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Logs and temporary files
+*.log
+*.tmp
+*.temp
+*.bak
+
+# Large/raw datasets
+data/
+datasets/
+
+# Model checkpoints / weights
+*.pt
+*.pth
+*.ckpt
+*.onnx
+*.h5
+*.pkl
+*.joblib
+
+# Local experiment artifacts
+runs/
+outputs/
+checkpoints/
+wandb/
+
+# Misc
+.ipynb_checkpoints/
