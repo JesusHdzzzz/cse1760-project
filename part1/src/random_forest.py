@@ -16,10 +16,6 @@ from data_utils import (
 
 
 
-
-DATA_PATH = Path(__file__).resolve().parent.parent / "data" / "MNISTmini.mat"
-mat = scipy.io.loadmat(DATA_PATH)
-
 X, y = load_mnist()
 X, y = filter_digits(X, y, digits=(5,6))
 
@@ -90,7 +86,11 @@ ax.grid(True, alpha=0.3)
 ax.legend()
 ax.invert_yaxis() 
 plt.tight_layout()
-plt.savefig('rf_error_plot.png', dpi=200)
+
+GRAPH_DIR = Path(__file__).resolve().parent.parent / "graphs" 
+GRAPH_DIR.mkdir(parents=True, exist_ok=True)
+
+plt.savefig(GRAPH_DIR / 'rf_error_plot.png', dpi=200)
 plt.show()
 
 
