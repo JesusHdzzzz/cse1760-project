@@ -32,8 +32,6 @@ y_train = encode_binary_labels(y_train, positive_class=6)
 y_val = encode_binary_labels(y_val, positive_class=6)
 y_test = encode_binary_labels(y_test, positive_class=6)
 
-X_val_scaled = scaler.transform(X_val)
-X_test_scaled = scaler.transform(X_test)
 
 
 C_values = [0.001, 0.01, 0.1, 1, 10, 100, 1000]
