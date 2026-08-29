@@ -6,18 +6,21 @@ from sklearn.model_selection import cross_val_score
 from sklearn.metrics import accuracy_score, classification_report
 from pathlib import Path
 
+from data_utils import (
+    load_mnist, 
+    filter_digits, 
+    encode_binary_labels,
+)
+
+
 
 
 DATA_PATH = Path(__file__).resolve().parent.parent / "data" / "MNISTmini.mat"
 mat = scipy.io.loadmat(DATA_PATH)
 
-X = mat['train_fea1']
-y = mat['train_gnd1'].flatten()
+X, y = load_mnist()
+X, y = filter_digits(X, y, digits=(5,6))
 
-
-idx = (y == 5) | (y == 6)
-X = X[idx]
-y = y[idx]
 
 print(f"Got {len(X)} images of 5 and 6")
 
