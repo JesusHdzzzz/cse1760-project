@@ -55,3 +55,4 @@ def split_data(X, y, train_size=1000, val_size=1000, test_size=1000, random_stat
     )
 
     return X_train, X_val, X_test, y_train, y_val, y_test
+

@@ -1,59 +1,37 @@
-import scipy.io
-import numpy as np
-import matplotlib.pyplot as plt
 from pathlib import Path 
-import scipy.io
+
+import numpy as np 
+import matplotlib.pyplot as plt 
 
 from sklearn.linear_model import LogisticRegression
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import cross_val_score
-from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
+from sklearn.metrics import accuracy_score
+from sklearn.pipeline import Pipeline
 
 from data_utils import (
-    load_mnist, 
-    filter_digits, 
-    encode_binary_labels, 
-    split_data
+    load_mnist,
+    filter_digits,
+    encode_binary_labels,
+    split_data,
 )
 
 X, y = load_mnist()
 X, y = filter_digits(X, y, digits=(5,6))
 
-mask = (y_all == 5) | (y_all == 6)
-X_filtered = X_all[mask]
-y_filtered = y_all[mask]
+X_train, X_val, X_test, y_train, y_val, y_test = split_data(
+    X,
+    y,
+    train_size=1000,
+    val_size=1000,
+    test_size=1000,
+    random_state=42,
+)
 
-train_size = 1000
-val_size = 1000
-test_size = 1000
+y_train = encode_binary_labels(y_train, positive_class=6) 
+y_val = encode_binary_labels(y_val, positive_class=6)
+y_test = encode_binary_labels(y_test, positive_class=6)
 
-
-indices = np.arange(len(X_filtered))
-np.random.seed(42)
-np.random.shuffle(indices)
-
-X_shuffled = X_filtered[indices]
-y_shuffled = y_filtered[indices]
-
-
-n_samples = min(3000, len(X_shuffled))
-X_subset = X_shuffled[:n_samples]
-y_subset = y_shuffled[:n_samples]
-
-X_train = X_subset[:train_size]
-y_train_raw = y_subset[:train_size]
-X_val = X_subset[train_size:train_size+val_size]
-y_val_raw = y_subset[train_size:train_size+val_size]
-X_test = X_subset[train_size+val_size:train_size+val_size+test_size]
-y_test_raw = y_subset[train_size+val_size:train_size+val_size+test_size]
-
-y_train = np.where(y_train_raw == 5, 0, 1)
-y_val = np.where(y_val_raw == 5, 0, 1)
-y_test = np.where(y_test_raw == 5, 0, 1)
-
-
-scaler = StandardScaler()
-X_train_scaled = scaler.fit_transform(X_train)
 X_val_scaled = scaler.transform(X_val)
 X_test_scaled = scaler.transform(X_test)
 
@@ -72,25 +50,35 @@ print("=" * 60)
 
 for C_val in C_values:
 
-    model = LogisticRegression(
-        C=C_val,
-        penalty='l2',
-        solver='liblinear',
-        max_iter=1000,
-        random_state=42
-    )
+    model = Pipeline([
+        ("scaler", StandardScaler()),
+        ("classifier", LogisticRegression(
+            C=C_val,
+            penalty="l2",
+            solver="liblinear",
+            max_iter=1000,
+            random_state=42,
+        )),
+    ])
     
   
-    cv_results = cross_val_score(model, X_train_scaled, y_train, cv=5, scoring='accuracy')
+    cv_results = cross_val_score(
+        model,
+        X_train, 
+        y_train,
+        cv=5,
+        scoring="accuracy",
+    )
+    
     cv_mean = np.mean(cv_results)
     cv_std = np.std(cv_results)
     
   
-    model.fit(X_train_scaled, y_train)
-    
+    model.fit(X_train, y_train)
 
-    train_acc = model.score(X_train_scaled, y_train)
-    val_acc = model.score(X_val_scaled, y_val)
+    train_acc = model.score(X_train, y_train) 
+    val_acc = model.score(X_val, y_val)
+    
     
     cv_scores_mean.append(cv_mean)
     cv_scores_std.append(cv_std)
@@ -110,6 +98,8 @@ print(f"\nBest C value: {best_C} (CV accuracy = {best_cv:.4f})")
 train_errs = [1 - acc for acc in train_accs]
 val_errs = [1 - acc for acc in val_accs]
 
+GRAPH_DIR = Path(__file__).resolve().parent.parent / "graphs" 
+GRAPH_DIR.mkdir(parents=True, exist_ok=True)
 
 plt.figure(figsize=(10, 6))
 plt.semilogx(C_values, train_errs, 'b-', marker='o', label='Training Error', linewidth=2)
@@ -121,7 +111,7 @@ plt.title('Logistic Regression: Training vs Validation Error\n(Best C selected v
 plt.legend()
 plt.grid(True, alpha=0.3)
 plt.gca().invert_yaxis()
-plt.savefig('lr_training_vs_validation_error.png', dpi=300, bbox_inches='tight')
+plt.savefig(GRAPH_DIR / 'lr_training_vs_validation_error.png', dpi=300, bbox_inches='tight')
 plt.show()
 
 
