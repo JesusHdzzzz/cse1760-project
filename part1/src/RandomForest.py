@@ -4,12 +4,14 @@ import matplotlib.pyplot as plt
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import cross_val_score
 from sklearn.metrics import accuracy_score, classification_report
+
 from pathlib import Path
 
 from data_utils import (
     load_mnist, 
     filter_digits, 
     encode_binary_labels,
+    split_data
 )
 
 
@@ -25,28 +27,7 @@ X, y = filter_digits(X, y, digits=(5,6))
 print(f"Got {len(X)} images of 5 and 6")
 
 
-np.random.seed(42)
-order = np.random.permutation(len(X))
-X = X[order]
-y = y[order]
-
-
-if len(X) > 3000:
-    X = X[:3000]
-    y = y[:3000]
-
-
-X_train = X[:1000]
-y_train_temp = y[:1000]
-X_val = X[1000:2000]
-y_val_temp = y[1000:2000]
-X_test = X[2000:3000]
-y_test_temp = y[2000:3000]
-
-
-y_train = (y_train_temp == 6).astype(int)  
-y_val = (y_val_temp == 6).astype(int)
-y_test = (y_test_temp == 6).astype(int)
+X_train, X_val, X_test, y_train, y_val, y_test = split_data(X, y, 1000, 1000, 1000, 42)
 
 
 n_options = [10, 50, 100, 200, 500]
