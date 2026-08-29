@@ -1,16 +1,23 @@
 import scipy.io
 import numpy as np
 import matplotlib.pyplot as plt
+from pathlib import Path 
+import scipy.io
+
 from sklearn.linear_model import LogisticRegression
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import cross_val_score
 from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
 
+from data_utils import (
+    load_mnist, 
+    filter_digits, 
+    encode_binary_labels, 
+    split_data
+)
 
-mat = scipy.io.loadmat("../images/MNISTmini.mat")
-X_all = mat['train_fea1']
-y_all = mat['train_gnd1'].flatten()
-
+X, y = load_mnist()
+X, y = filter_digits(X, y, digits=(5,6))
 
 mask = (y_all == 5) | (y_all == 6)
 X_filtered = X_all[mask]
