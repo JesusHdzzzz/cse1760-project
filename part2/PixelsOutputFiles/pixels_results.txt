@@ -1,0 +1,8 @@
+test error 4.94%, 100 trees, maximum depth 6
+Other hyperparameters:
+- subsample: 0.9
+- reg_lambda: 1
+- n_estimators: 100
+- max_depth: 6
+- colsample_bytree: 0.7
+PCA components: 148 (80% variance retained)

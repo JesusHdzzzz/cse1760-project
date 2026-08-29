@@ -1,0 +1,93 @@
+============================================================
+XGBoost Classification for MNIST-LeNet5 Features
+============================================================
+
+[1/6] Loading MNIST-LeNet5 data...
+   Training data: (60000, 800) samples, 800 features
+   Test data: (10000, 800) samples
+   Unique labels in training: [0 1 2 3 4 5 6 7 8 9]
+   Unique labels in test: [0 1 2 3 4 5 6 7 8 9]
+   Labels converted from 1-10 to 0-9
+
+[2/6] Splitting data into train/validation sets...
+   Train set: 55000 samples
+   Validation set: 5000 samples
+
+[3/6] Applying dimensionality reduction...
+   Features (800) > 100, applying PCA...
+   Reduced to 38 components
+   Variance retained: 0.8018
+
+[4/6] Hyperparameter tuning with RandomizedSearchCV...
+   Starting randomized search...
+Fitting 3 folds for each of 6 candidates, totalling 18 fits
+   Search completed in 207.2 seconds
+   Best CV accuracy: 0.9802
+   Best parameters: {'subsample': 0.8, 'n_estimators': 100, 'max_depth': 8, 'colsample_bytree': 0.6}
+
+[5/6] Selecting optimal number of trees using validation set...
+   Trees:  50, Val Error: 0.0258, Test Error: 0.0224
+   Trees: 100, Val Error: 0.0200, Test Error: 0.0180
+   Trees: 150, Val Error: 0.0180, Test Error: 0.0162
+   Trees: 200, Val Error: 0.0172, Test Error: 0.0156
+
+     Selected tree count: 200 (based on validation error: 0.0172)
+   Saved: lenet5_test_error_vs_trees.pdf
+   Saved: lenet5_test_error_vs_trees.eps
+
+[6/6] Training final model on full training data...
+     Final model trained with 200 trees
+     Final test accuracy: 0.9849
+     Final test error: 0.0151
+
+[7/7] Saving model and results...
+     Saved: best_lenet5_model.pkl
+     Saved: lenet5_transformer.pkl
+  Saved: lenet5_results.txt
+
+============================================================
+ TRAINING COMPLETED SUCCESSFULLY
+============================================================
+Total runtime: 561.6 seconds
+Final test accuracy: 0.9849
+Final test error: 0.0151
+
+Classification Report:
+              precision    recall  f1-score   support
+
+           0     0.9912    0.9947    0.9930      1135
+           1     0.9808    0.9884    0.9846      1032
+           2     0.9803    0.9861    0.9832      1010
+           3     0.9878    0.9857    0.9867       982
+           4     0.9910    0.9821    0.9865       892
+           5     0.9916    0.9864    0.9890       958
+           6     0.9738    0.9776    0.9757      1028
+           7     0.9846    0.9856    0.9851       974
+           8     0.9848    0.9663    0.9755      1009
+           9     0.9839    0.9949    0.9893       980
+
+    accuracy                         0.9849     10000
+   macro avg     0.9850    0.9848    0.9849     10000
+weighted avg     0.9849    0.9849    0.9849     10000
+
+
+FILES GENERATED:
+----------------------------------------
+1. lenet5_test_error_vs_trees.pdf
+2. lenet5_test_error_vs_trees.eps
+3. best_lenet5_model.pkl
+4. lenet5_transformer.pkl
+5. lenet5_results.txt
+
+============================================================
+RESULTS FOR SUBMISSION:
+============================================================
+test error 1.51%, 200 trees, maximum depth 8
+Other hyperparameters:
+- subsample: 0.8
+- n_estimators: 100
+- max_depth: 8
+- colsample_bytree: 0.6
+PCA components: 38 (80% variance retained)
+
+============================================================
