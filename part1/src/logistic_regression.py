@@ -128,7 +128,6 @@ X_combined_scaled = scaler_final.fit_transform(X_combined)
 
 final_model = LogisticRegression(
     C=best_C,
-    penalty='l2',
     solver='liblinear',
     max_iter=1000,
     random_state=42
