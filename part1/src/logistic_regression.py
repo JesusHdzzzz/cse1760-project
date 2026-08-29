@@ -52,7 +52,6 @@ for C_val in C_values:
         ("scaler", StandardScaler()),
         ("classifier", LogisticRegression(
             C=C_val,
-            penalty="l2",
             solver="liblinear",
             max_iter=1000,
             random_state=42,
