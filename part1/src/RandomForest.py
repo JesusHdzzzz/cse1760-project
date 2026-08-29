@@ -6,7 +6,10 @@ from sklearn.model_selection import cross_val_score
 from sklearn.metrics import accuracy_score, classification_report
 
 
-mat = scipy.io.loadmat("../images/MNISTmini.mat")
+
+DATA_PATH = Path(__file__).resolve().parent.parent / "data" / "MNISTmini.mat"
+mat = scipy.io.loadmat(DATA_PATH)
+
 X = mat['train_fea1']
 y = mat['train_gnd1'].flatten()
 
