@@ -33,7 +33,7 @@ def main():
 
     print("\n[1/6] Loading MNIST-LeNet5 data...")
     X_train_all, y_train_all = load_mnist_mat(
-        "../Part1/Data/MNIST-LeNet5.mat",
+        "../../part1/data/MNIST-LeNet5.mat",
         feature_key="train_fea",
         label_key="train_gnd"
     )
