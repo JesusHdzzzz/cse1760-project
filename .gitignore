@@ -48,6 +48,7 @@ htmlcov/
 # Large/raw datasets
 
 part1/data/*.mat
+part2/data/*.mat
 # Model checkpoints / weights
 *.pt
 *.pth
