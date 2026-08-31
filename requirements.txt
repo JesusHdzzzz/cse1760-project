@@ -1,4 +1,5 @@
 numpy
 scipy
 matplotlib
-scikit-learnxgboost
+scikit-learn
+xgboost

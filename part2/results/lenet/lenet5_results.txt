@@ -1,7 +1,14 @@
-test error 1.51%, 200 trees, maximum depth 8
-Other hyperparameters:
-- subsample: 0.8
-- n_estimators: 100
+Final test accuracy: 0.9847
+    Final test error: 1.53%
+    Selected trees: 200
+    Best CV accuracy: 0.9793
+    Best validation error: 0.0170
+    
+    Best hyperparameters:
+    - subsample: 1.0
 - max_depth: 8
 - colsample_bytree: 0.6
-PCA components: 38 (80% variance retained)
+    
+    PCA components: 38
+    PCA variance retained: 80%
+    
