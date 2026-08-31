@@ -66,3 +66,5 @@ wandb/
 
 # Misc
 .ipynb_checkpoints/
+
+part2/data/*.mat
