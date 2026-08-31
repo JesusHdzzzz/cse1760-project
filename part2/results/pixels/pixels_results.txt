@@ -1,4 +1,4 @@
-test error 4.94%, 100 trees, maximum depth 6
+test error 5.15%, 100 trees, maximum depth 6
 Other hyperparameters:
 - subsample: 0.9
 - reg_lambda: 1
