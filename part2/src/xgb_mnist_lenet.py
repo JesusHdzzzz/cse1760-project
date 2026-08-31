@@ -14,7 +14,7 @@ from xgboost import XGBClassifier
 from pathlib import Path
 
 PART2_DIR = Path(__file__).resolve().parent.parent
-DATA_DIR = PART@_DIR / "data"
+DATA_DIR = PART2_DIR / "data"
 OUTPUT_DIR = PART2_DIR / "results" / "lenet" 
 
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
