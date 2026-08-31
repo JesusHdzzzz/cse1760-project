@@ -14,7 +14,9 @@ from xgboost import XGBClassifier
 from pathlib import Path
 
 PART2_DIR = Path(__file__).resolve().parent.parent
+DATA_DIR = PART@_DIR / "data"
 OUTPUT_DIR = PART2_DIR / "results" / "lenet" 
+
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 def load_mnist_mat(path, feature_key="train_fea", label_key="train_gnd"):
@@ -38,12 +40,12 @@ def main():
 
     print("\n[1/6] Loading MNIST-LeNet5 data...")
     X_train_all, y_train_all = load_mnist_mat(
-        "../data/MNIST-LeNet5.mat",
+        DATA_DIR / "MNIST-LeNet5.mat",
         feature_key="train_fea",
         label_key="train_gnd"
     )
     X_test, y_test = load_mnist_mat(
-        "../data/MNIST-LeNet5.mat",
+        DATA_DIR / "MNIST-LeNet5.mat",
         feature_key="test_fea",
         label_key="test_gnd"
     )
@@ -261,7 +263,7 @@ Other hyperparameters:
     if pca is not None:
         results_text += f"PCA components: {X_train_used.shape[1]} (80% variance retained)\n"
     
-    with open('lenet5_results.txt', 'w') as f:
+    with open(OUTPUT_DIR / 'lenet5_results.txt', 'w') as f:
         f.write(results_text)
     print("  Saved: lenet5_results.txt")
     

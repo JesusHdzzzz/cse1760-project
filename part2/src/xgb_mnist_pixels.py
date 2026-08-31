@@ -13,6 +13,8 @@ from pathlib import Path
 
 PART2_DIR = Path(__file__).resolve().parent.parent
 OUTPUT_DIR = PART2_DIR / "results" / "pixels" 
+DATA_DIR = PART2_DIR / "data"
+
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 def main():
@@ -20,12 +22,12 @@ def main():
 
     print("Loading MNIST pixel data...")
     X_all, y_all = load_mnist_mat(
-        "../data/MNIST.mat",
+        DATA_DIR / "MNIST.mat",
         feature_key="train_fea",
         label_key="train_gnd"
     )
     X_test, y_test = load_mnist_mat(
-        "../data/MNIST.mat",
+        DATA_DIR / "MNIST.mat",
         feature_key="test_fea",
         label_key="test_gnd"
     )
