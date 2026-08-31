@@ -10,25 +10,20 @@ from sklearn.metrics import accuracy_score, classification_report, confusion_mat
 from sklearn.model_selection import StratifiedKFold, RandomizedSearchCV, train_test_split
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
+from sklearn.pipeline import Pipeline 
+from sklearn.base import clone
 from xgboost import XGBClassifier
 from pathlib import Path
+from utils_mnist import load_mnist_mat, train_val_split 
+RANDOM_STATE = 42 
+PCA_VARIANCE = 0.80 
+TREE_COUNTS = [50, 100, 150, 200]
 
 PART2_DIR = Path(__file__).resolve().parent.parent
 DATA_DIR = PART2_DIR / "data"
 OUTPUT_DIR = PART2_DIR / "results" / "lenet" 
 
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-
-def load_mnist_mat(path, feature_key="train_fea", label_key="train_gnd"):
-    """Load MNIST data from .mat file and FIX labels to be 0-9."""
-    import scipy.io
-    data = scipy.io.loadmat(path)
-    X = data[feature_key]
-    y = data[label_key].ravel()
-    
-    y = y - 1  
-    
-    return X, y
 
 def main():
     start_time = time.time()
@@ -58,86 +53,74 @@ def main():
     
 
     print("\n[2/6] Splitting data into train/validation sets...")
-    X_train, X_val, y_train, y_val = train_test_split(
-        X_train_all, y_train_all,
-        test_size=5000/60000,  
-        random_state=42,
-        stratify=y_train_all
+    X_train, X_val, y_train, y_val = train_val_split(
+        X_train_all,
+        y_train_all,
+        random_state=RANDOM_STATE,
     )
     
     print(f"   Train set: {X_train.shape[0]} samples")
     print(f"   Validation set: {X_val.shape[0]} samples")
     
     print("\n[3/6] Applying dimensionality reduction...")
-    n_features = X_train.shape[1]
-    pca = None
-    scaler = None
-    
-    if n_features > 100:
-        print(f"   Features ({n_features}) > 100, applying PCA...")
-        
-      
-        scaler = StandardScaler()
-        X_train_scaled = scaler.fit_transform(X_train)
-        X_val_scaled = scaler.transform(X_val)
-        X_test_scaled = scaler.transform(X_test)
-        
-    
-        pca = PCA(n_components=0.80, random_state=42, svd_solver='full')
-        X_train_pca = pca.fit_transform(X_train_scaled)
-        X_val_pca = pca.transform(X_val_scaled)
-        X_test_pca = pca.transform(X_test_scaled)
-        
-        X_train_used = X_train_pca
-        X_val_used = X_val_pca
-        X_test_used = X_test_pca
-        
-        print(f"   Reduced to {X_train_used.shape[1]} components")
-        print(f"   Variance retained: {np.sum(pca.explained_variance_ratio_):.4f}")
-    else:
-        print(f"   Features ({n_features}) <= 100, skipping PCA")
-        X_train_used = X_train
-        X_val_used = X_val
-        X_test_used = X_test
    
-  
-    print("\n[4/6] Hyperparameter tuning with RandomizedSearchCV...")
+    pipeline = Pipeline([
+        (
+            "scaler",
+            StandardScaler(),
+        ),
+        (
+            "pca",
+            PCA(
+                n_components=PCA_VARIANCE,
+                svd_solver="full",
+            ),
+        ),
+        (
+            "model",
+            XGBClassifier(
+                learning_rate=0.1,
+                objective="multi:softmax",
+                num_class=10,
+                eval_metric="mlogloss",
+                tree_method="hist",
+                random_state=RANDOM_STATE,
+                n_jobs=1,
+                verbosity=0,
+            ),
+        ),
+    ])
     
-    base_model = XGBClassifier(
-        learning_rate=0.1,
-        objective="multi:softmax",
-        num_class=10,  
-        eval_metric="mlogloss",
-        n_jobs=2,
-        tree_method="hist",
-        random_state=42,
-        verbosity=0,
-        use_label_encoder=False,
-    )
+    
+    print("\n[4/6] Hyperparameter tuning with RandomizedSearchCV...")
+
     
     param_dist = {
-        'n_estimators': [50, 100, 150],
-        'max_depth': [4, 6, 8],
-        'colsample_bytree': [0.6, 0.8, 1.0],
-        'subsample': [0.6, 0.8, 1.0],
+        "model__max_depth": [4, 6, 8],
+        "model__colsample_bytree": [0.6, 0.8, 1.0],
+        "model__subsample": [0.6, 0.8, 1.0],
     }
     
     random_search = RandomizedSearchCV(
-        estimator=base_model,
+        estimator=pipeline,
         param_distributions=param_dist,
-        n_iter=6,  
-        cv=StratifiedKFold(n_splits=3, shuffle=True, random_state=42),
-        scoring='accuracy',
-        n_jobs=2,
-        random_state=42,
+        n_iter=6,
+        cv=StratifiedKFold(
+            n_splits=3,
+            shuffle=True,
+            random_state=RANDOM_STATE,
+        ),
+        scoring="accuracy",
+        n_jobs=-1,
+        random_state=RANDOM_STATE,
         verbose=1,
-        error_score='raise'
+        error_score="raise",
     )
     
     print("   Starting randomized search...")
     search_start = time.time()
     
-    random_search.fit(X_train_used, y_train)
+    random_search.fit(X_train, y_train)
     
     search_time = time.time() - search_start
     print(f"   Search completed in {search_time:.1f} seconds")
@@ -149,38 +132,36 @@ def main():
 
     print("\n[5/6] Selecting optimal number of trees using validation set...")
     
-    tree_counts = [50, 100, 150, 200]
+    print("\nSelecting number of trees using validation data...")
+
     val_errors = []
-    test_errors_for_plot = []
     
-    for n_trees in tree_counts:
-        model = XGBClassifier(
-            n_estimators=n_trees,
-            max_depth=best_params['max_depth'],
-            learning_rate=0.1,
-            colsample_bytree=best_params.get('colsample_bytree', 0.8),
-            subsample=best_params.get('subsample', 0.8),
-            objective="multi:softmax",
-            num_class=10,
-            eval_metric="mlogloss",
-            n_jobs=2,
-            tree_method="hist",
-            random_state=42,
-            verbosity=0,
-            use_label_encoder=False,
+    for n_trees in TREE_COUNTS:
+        candidate = clone(random_search.best_estimator_)
+    
+        candidate.set_params(
+            model__n_estimators=n_trees,
         )
-        
-        model.fit(X_train_used, y_train)
-        
-        y_val_pred = model.predict(X_val_used)
+    
+        candidate.fit(X_train, y_train)
+    
+        y_val_pred = candidate.predict(X_val)
         val_error = 1 - accuracy_score(y_val, y_val_pred)
+    
         val_errors.append(val_error)
-        
-        y_test_pred = model.predict(X_test_used)
-        test_error = 1 - accuracy_score(y_test, y_test_pred)
-        test_errors_for_plot.append(test_error)
-        
-        print(f"   Trees: {n_trees:3d}, Val Error: {val_error:.4f}, Test Error: {test_error:.4f}")
+    
+        print(
+            f"Trees: {n_trees:3d}, "
+            f"Validation Error: {val_error:.4f}"
+        )
+    
+    best_idx = np.argmin(val_errors)
+    best_tree_count = TREE_COUNTS[best_idx]
+    
+    print(
+        f"Selected {best_tree_count} trees "
+        f"(validation error={val_errors[best_idx]:.4f})"
+    )
     
     best_idx = np.argmin(val_errors)
     best_tree_count = tree_counts[best_idx]

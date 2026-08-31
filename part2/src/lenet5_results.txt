@@ -1,7 +1,0 @@
-test error 1.45%, 200 trees, maximum depth 8
-Other hyperparameters:
-- subsample: 0.8
-- n_estimators: 100
-- max_depth: 8
-- colsample_bytree: 0.6
-PCA components: 38 (80% variance retained)
