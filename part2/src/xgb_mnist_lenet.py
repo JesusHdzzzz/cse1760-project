@@ -11,6 +11,11 @@ from sklearn.model_selection import StratifiedKFold, RandomizedSearchCV, train_t
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
 from xgboost import XGBClassifier
+from pathlib import Path
+
+PART2_DIR = Path(__file__).resolve().parent.parent
+OUTPUT_DIR = PART2_DIR / "results" / "lenet" 
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 def load_mnist_mat(path, feature_key="train_fea", label_key="train_gnd"):
     """Load MNIST data from .mat file and FIX labels to be 0-9."""
@@ -33,12 +38,12 @@ def main():
 
     print("\n[1/6] Loading MNIST-LeNet5 data...")
     X_train_all, y_train_all = load_mnist_mat(
-        "../../part1/data/MNIST-LeNet5.mat",
+        "../data/MNIST-LeNet5.mat",
         feature_key="train_fea",
         label_key="train_gnd"
     )
     X_test, y_test = load_mnist_mat(
-        "../Part1/Data/MNIST-LeNet5.mat",
+        "../data/MNIST-LeNet5.mat",
         feature_key="test_fea",
         label_key="test_gnd"
     )
@@ -190,8 +195,8 @@ def main():
     plt.legend()
     plt.grid(True, alpha=0.3)
     
-    plt.savefig('lenet5_test_error_vs_trees.pdf', format='pdf', bbox_inches='tight')
-    plt.savefig('lenet5_test_error_vs_trees.eps', format='eps', bbox_inches='tight')
+    plt.savefig(OUTPUT_DIR / 'lenet5_test_error_vs_trees.pdf', format='pdf', bbox_inches='tight')
+    plt.savefig(OUTPUT_DIR / 'lenet5_test_error_vs_trees.eps', format='eps', bbox_inches='tight')
     plt.close()
     
     print("   Saved: lenet5_test_error_vs_trees.pdf")
@@ -234,13 +239,13 @@ def main():
     print("\n[7/7] Saving model and results...")
     
 
-    with open('best_lenet5_model.pkl', 'wb') as f:
+    with open(OUTPUT_DIR / 'best_lenet5_model.pkl', 'wb') as f:
         pickle.dump(final_model, f)
     print("     Saved: best_lenet5_model.pkl")
     
 
     if pca is not None and scaler is not None:
-        with open('lenet5_transformer.pkl', 'wb') as f:
+        with open(OUTPUT_DIR / 'lenet5_transformer.pkl', 'wb') as f:
             pickle.dump({'pca': pca, 'scaler': scaler}, f)
         print("     Saved: lenet5_transformer.pkl")
     

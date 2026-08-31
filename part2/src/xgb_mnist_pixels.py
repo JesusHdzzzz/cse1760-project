@@ -13,7 +13,7 @@ from pathlib import Path
 
 PART2_DIR = Path(__file__).resolve().parent.parent
 OUTPUT_DIR = PART2_DIR / "results" / "pixels" 
-OUTPUT_DIR.mkdir(parents=True, exist=ok=True)
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 def main():
     start_time = time.time()
