@@ -9,19 +9,23 @@ from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
 from xgboost import XGBClassifier
 from utils_mnist import load_mnist_mat, train_val_split
+from pathlib import Path
 
+PART2_DIR = Path(__file__).resolve().parent.parent
+OUTPUT_DIR = PART2_DIR / "results" / "pixels" 
+OUTPUT_DIR.mkdir(parents=True, exist=ok=True)
 
 def main():
     start_time = time.time()
 
     print("Loading MNIST pixel data...")
     X_all, y_all = load_mnist_mat(
-        "../Part1/Data/MNIST.mat",
+        "../data/MNIST.mat",
         feature_key="train_fea",
         label_key="train_gnd"
     )
     X_test, y_test = load_mnist_mat(
-        "../Part1/Data/MNIST.mat",
+        "../data/MNIST.mat",
         feature_key="test_fea",
         label_key="test_gnd"
     )
@@ -142,8 +146,8 @@ def main():
  
     plt.grid(True, color='lightgray', linestyle='-', linewidth=0.5)
 
-    plt.savefig("pixels_test_error_vs_trees.pdf", format="pdf", bbox_inches="tight")
-    plt.savefig("pixels_test_error_vs_trees.eps", format="eps", bbox_inches="tight")
+    plt.savefig(OUTPUT_DIR / "pixels_test_error_vs_trees.pdf", format="pdf", bbox_inches="tight")
+    plt.savefig(OUTPUT_DIR / "pixels_test_error_vs_trees.eps", format="eps", bbox_inches="tight")
     plt.close()
 
     print("\n✓ Saved plots:")
@@ -174,10 +178,10 @@ def main():
 
     print("\n=== Saving Model and Results ===")
 
-    with open("best_pixels_model.pkl", "wb") as f:
+    with open(OUTPUT_DIR / "best_pixels_model.pkl", "wb") as f:
         pickle.dump(best_model, f)
 
-    with open("pixels_pca_transformer.pkl", "wb") as f:
+    with open(OUTPUT_DIR / "pixels_pca_transformer.pkl", "wb") as f:
         pickle.dump({"pca": pca, "scaler": scaler}, f)
 
     y_pred = best_model.predict(X_test_pca)
@@ -192,7 +196,7 @@ Other hyperparameters:
 PCA components: {X_train_pca.shape[1]} (80% variance retained)
 """
 
-    with open("pixels_results.txt", "w") as f:
+    with open(OUTPUT_DIR / "pixels_results.txt", "w") as f:
         f.write(results_text)
 
     print(" Saved: best_pixels_model.pkl")
