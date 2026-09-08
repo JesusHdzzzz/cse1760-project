@@ -10,6 +10,22 @@ if ! command -v python3 &> /dev/null; then
     exit 1
 fi
 
+# Make sure Python venv support is available
+if ! python3 -m venv --help &> /dev/null; then
+    echo "Error: python3 venv support is not installed."
+    echo "Install it with your system package manager, for example:"
+    echo "  sudo apt install python3-venv"
+    exit 1
+fi
+
+# Make sure Java is available for H2O
+if ! command -v java &> /dev/null; then
+    echo "Error: Java is not installed or not on PATH."
+    echo "H2O requires Java. Install OpenJDK, for example:"
+    echo "  sudo apt install default-jre"
+    exit 1
+fi
+
 # Create virtual environment if it doesn't exist
 if [ ! -d ".venv" ]; then
     echo "Creating virtual environment..."
