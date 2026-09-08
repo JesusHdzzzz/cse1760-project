@@ -22,7 +22,8 @@ fi
 if ! command -v java &> /dev/null; then
     echo "Error: Java is not installed or not on PATH."
     echo "H2O requires Java. Install OpenJDK, for example:"
-    echo "  sudo apt install default-jre"
+    echo "conda install -c conda-forge openjdk "
+    conda install -c conda-forge openjdk
     exit 1
 fi
 
