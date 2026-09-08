@@ -15,6 +15,7 @@ from h2o.estimators import H2OGradientBoostingEstimator
 
 PART3_DIR = Path(__file__).resolve().parent.parent
 DATA_DIR = PART3_DIR / "data"
+OUTPUT_DIR = PART3_DIR / "outputs" / "gbm_optimization"
 
 # Data loading & preprocessing
 def load_and_filter_outliers(
@@ -622,10 +623,11 @@ def main():
     )
     parser.add_argument(
         "--output-csv",
-        type=str,
-        default="results_superconductivity_gbm_sweep.csv",
+        type=Path,
+        default=OUTPUT_DIR / "results_superconductivity_gbm_sweep.csv",
         help="Where to save the results table.",
     )
+    parser.add_argument("--seed", type=int, default=42)
     parser.add_argument(
         "--run-gbm-sweep",
         action="store_true",
@@ -646,7 +648,7 @@ def main():
         df,
         target_col="critical_temp",
         test_size=0.2,
-        random_state=42,
+        random_state=args.seed,
     )
 
     # 3. Init H2O and create H2OFrames
@@ -654,57 +656,68 @@ def main():
     h2o.init()
     h2o.show_progress()
 
-    train_h2o, test_h2o, x_cols, y_col = to_h2o_frames(
-        X_train, X_test, y_train, y_test, target_col="critical_temp"
-    )
+    try:
+        train_h2o, test_h2o, x_cols, y_col = to_h2o_frames(
+            X_train, X_test, y_train, y_test, target_col="critical_temp"
+        )
 
-    results: List[Dict[str, Any]] = []
+        results: List[Dict[str, Any]] = []
+        results.append(
+            run_h2o_gbm(
+                train_h2o,
+                test_h2o,
+                x_cols,
+                y_col,
+                seed=args.seed,
+            )
+        )
 
-    # Run base GBM
-    results.append(run_h2o_gbm(train_h2o, test_h2o, x_cols, y_col))
+        if args.run_gbm_sweep:
+            sweep_results = run_gbm_sweep(
+                train_h2o,
+                test_h2o,
+                x_cols,
+                y_col,
+                seed=args.seed,
+            )
+            results.extend(sweep_results)
 
-    # Manual GBM sweep (if enabled)
-    if args.run_gbm_sweep:
-        sweep_results = run_gbm_sweep(train_h2o, test_h2o, x_cols, y_col)
-        results.extend(sweep_results)
+        results_df = pd.DataFrame(results)
+        # Preserved from the original experiment; see part3/README.md.
+        results_df = results_df.sort_values("test_rmse").reset_index(drop=True)
+        summary_df = results_df.rename(
+            columns={
+                "model_name": "experiment",
+                "cv_rmse": "cv_RMSE",
+                "cv_mae": "cv_MAE",
+            }
+        )
 
-    # Build summary table
-    results_df = pd.DataFrame(results)
-    results_df = results_df.sort_values("test_rmse").reset_index(drop=True)
+        cols_to_show = [
+            "experiment",
+            "cv_RMSE",
+            "cv_MAE",
+            "test_rmse",
+            "test_mae",
+            "train_time_sec",
+            "n_trees",
+            "max_depth",
+            "learn_rate",
+            "sample_rate",
+            "col_sample_rate",
+            "min_rows",
+            "n_params",
+        ]
 
-    # Make a prettier summary table
-    summary_df = results_df.rename(
-        columns={
-            "model_name": "experiment",
-            "cv_rmse": "valid_RMSE",
-            "cv_mae": "valid_MAE",
-        }
-    )
+        print("\n===== Building final summary table (GBM base + sweep) =====")
+        print(summary_df[cols_to_show])
+        print("==========================================================\n")
 
-    cols_to_show = [
-        "experiment",
-        "valid_RMSE",
-        "valid_MAE",
-        "test_rmse",
-        "test_mae",
-        "train_time_sec",
-        "n_trees",
-        "max_depth",
-        "learn_rate",
-        "sample_rate",
-        "col_sample_rate",
-        "min_rows",
-        "n_params",
-    ]
-
-    print("\n===== Building final summary table (GBM base + sweep) =====")
-    print(summary_df[cols_to_show])
-    print("==========================================================\n")
-
-    summary_df.to_csv(args.output_csv, index=False)
-    print(f"[INFO] Saved results to {args.output_csv}")
-
-    h2o.cluster().shutdown(prompt=False)
+        args.output_csv.parent.mkdir(parents=True, exist_ok=True)
+        summary_df.to_csv(args.output_csv, index=False)
+        print(f"[INFO] Saved results to {args.output_csv}")
+    finally:
+        h2o.cluster().shutdown(prompt=False)
 
 
 if __name__ == "__main__":

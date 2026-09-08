@@ -1,6 +1,9 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
-set -e
+set -euo pipefail
+
+PROJECT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+VENV_DIR="${PROJECT_DIR}/.venv"
 
 echo "Setting up CSE1760 project environment..."
 
@@ -21,28 +24,27 @@ fi
 # Make sure Java is available for H2O
 if ! command -v java &> /dev/null; then
     echo "Error: Java is not installed or not on PATH."
-    echo "H2O requires Java. Install OpenJDK, for example:"
-    echo "conda install -c conda-forge openjdk "
-    conda install -c conda-forge openjdk
+    echo "H2O requires Java. Install OpenJDK with your system or environment manager."
+    echo "For Conda environments, for example: conda install -c conda-forge openjdk"
     exit 1
 fi
 
 # Create virtual environment if it doesn't exist
-if [ ! -d ".venv" ]; then
+if [ ! -d "${VENV_DIR}" ]; then
     echo "Creating virtual environment..."
-    python3 -m venv .venv
+    python3 -m venv "${VENV_DIR}"
 else
     echo "Virtual environment already exists."
 fi
 
 # Activate environment
-source .venv/bin/activate
+source "${VENV_DIR}/bin/activate"
 
 echo "Upgrading pip..."
 python -m pip install --upgrade pip
 
 echo "Installing dependencies..."
-pip install -r requirements.txt
+python -m pip install -r "${PROJECT_DIR}/requirements.txt"
 
 echo ""
 echo "Setup complete."

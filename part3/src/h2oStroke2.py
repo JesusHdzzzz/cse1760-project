@@ -1,200 +1,240 @@
-import pandas as pd
-import h2o
-from h2o.estimators.gbm import H2OGradientBoostingEstimator
-from h2o.grid.grid_search import H2OGridSearch
-from pathlib import Path
-import warnings
+#!/usr/bin/env python3
+
+import argparse
 import time
-from sklearn.metrics import precision_recall_curve, average_precision_score, roc_curve, auc, confusion_matrix
+from pathlib import Path
+
+import h2o
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
+from h2o.estimators.gbm import H2OGradientBoostingEstimator
+from h2o.grid.grid_search import H2OGridSearch
+from sklearn.metrics import (
+    auc,
+    average_precision_score,
+    confusion_matrix,
+    precision_recall_curve,
+    roc_curve,
+)
+
 
 PART3_DIR = Path(__file__).resolve().parent.parent
-DATA_DIR = PART3_DIR / "data"
+DATA_PATH = PART3_DIR / "data" / "healthcare-dataset-stroke-data.csv"
+OUTPUT_DIR = PART3_DIR / "outputs" / "h2o_stroke"
 
-warnings.filterwarnings('ignore', category=FutureWarning)
 
-start_time = time.perf_counter()
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Tune and evaluate an H2O GBM on the stroke dataset."
+    )
+    parser.add_argument("--data", type=Path, default=DATA_PATH)
+    parser.add_argument("--output-dir", type=Path, default=OUTPUT_DIR)
+    parser.add_argument("--seed", type=int, default=1234)
+    parser.add_argument("--max-mem-size", default="8G")
+    parser.add_argument(
+        "--show",
+        action="store_true",
+        help="Display plots interactively in addition to saving them.",
+    )
+    return parser.parse_args()
 
-df = pd.read_csv(DATA_DIR / "healthcare-dataset-stroke-data.csv")
 
-bmi_median = df['bmi'].median()
-df['bmi'].fillna(bmi_median, inplace=True)
+def save_figure(fig, path: Path, show: bool) -> None:
+    fig.savefig(path, dpi=300, bbox_inches="tight")
+    print(f"Saved plot: {path}")
+    if show:
+        plt.show()
+    plt.close(fig)
 
-df = df[df['gender'] != 'Other']
 
-h2o.init(max_mem_size="8G")
+def main() -> None:
+    args = parse_args()
+    if not args.data.is_file():
+        raise FileNotFoundError(f"Stroke dataset not found: {args.data}")
+    args.output_dir.mkdir(parents=True, exist_ok=True)
 
-h2o_df = h2o.H2OFrame(df)
+    start_time = time.perf_counter()
+    df = pd.read_csv(args.data)
 
-y = 'stroke'
-X = h2o_df.columns
-X.remove('id')
-X.remove(y)
+    # Preserved from the original experiment. See part3/README.md before using
+    # these results as an unbiased final estimate.
+    bmi_median = df["bmi"].median()
+    df["bmi"] = df["bmi"].fillna(bmi_median)
+    df = df[df["gender"] != "Other"].copy()
 
-h2o_df[y] = h2o_df[y].asfactor()
+    h2o.init(max_mem_size=args.max_mem_size)
+    try:
+        h2o_df = h2o.H2OFrame(df)
+        target = "stroke"
+        features = [column for column in h2o_df.columns if column not in {"id", target}]
+        h2o_df[target] = h2o_df[target].asfactor()
 
-train, test = h2o_df.split_frame(ratios=[0.8], seed = 1234)
+        train, test = h2o_df.split_frame(ratios=[0.8], seed=args.seed)
 
-print("\n--- Class Distribution in Splits ---")
-print("\nTraining Set:")
-train_dist = train[y].table()
-train_counts = train_dist.as_data_frame()
-print(f"No Stroke: {int(train_counts.iloc[0, 1])}, Stroke: {int(train_counts.iloc[1, 1])}")
+        print("\n--- Class Distribution in Splits ---")
+        train_counts = train[target].table().as_data_frame()
+        test_counts = test[target].table().as_data_frame()
+        print("\nTraining Set:")
+        print(
+            f"No Stroke: {int(train_counts.iloc[0, 1])}, "
+            f"Stroke: {int(train_counts.iloc[1, 1])}"
+        )
+        print("\nTest Set:")
+        print(
+            f"No Stroke: {int(test_counts.iloc[0, 1])}, "
+            f"Stroke: {int(test_counts.iloc[1, 1])}"
+        )
+        total_no_stroke = int(train_counts.iloc[0, 1]) + int(test_counts.iloc[0, 1])
+        total_stroke = int(train_counts.iloc[1, 1]) + int(test_counts.iloc[1, 1])
+        print(f"Totals: No Stroke: {total_no_stroke}, Stroke: {total_stroke}")
 
-print("\nTest Set:")
-test_dist = test[y].table()
-test_counts = test_dist.as_data_frame()
-print(f"No Stroke: {int(test_counts.iloc[0, 1])}, Stroke: {int(test_counts.iloc[1, 1])}")
+        hyper_params = {
+            "max_depth": [4, 6, 8],
+            "learn_rate": [0.01, 0.03, 0.05],
+            "ntrees": [10, 20, 30, 40, 50, 60, 70, 80, 90, 100],
+            "sample_rate": [0.7, 0.8, 0.9],
+            "col_sample_rate": [0.7, 0.8, 0.9],
+            "min_rows": [2, 3, 4],
+        }
+        gbm_base = H2OGradientBoostingEstimator(
+            seed=args.seed,
+            balance_classes=True,
+            class_sampling_factors=[1.0, 11.0],
+            nfolds=2,
+            keep_cross_validation_predictions=True,
+            fold_assignment="Stratified",
+        )
+        grid = H2OGridSearch(
+            model=gbm_base,
+            hyper_params=hyper_params,
+            search_criteria={"strategy": "Cartesian"},
+        )
+        grid.train(x=features, y=target, training_frame=train)
 
-totalnostroke = int(train_counts.iloc[0, 1]) + int(test_counts.iloc[0, 1])
-totalstroke = int(train_counts.iloc[1, 1]) + int(test_counts.iloc[1, 1])
-print(f"Totals: No Stroke: {totalnostroke}, Stroke: {totalstroke}")
+        rows = []
+        for model in grid.models:
+            ntrees = model.actual_params["ntrees"]
+            test_aucpr = model.model_performance(test_data=test).aucpr()
+            rows.append((ntrees, test_aucpr))
 
-hyper_params = {
-    'max_depth': [4, 6, 8],
-    'learn_rate': [0.01, 0.03, 0.05],
-    'ntrees': [10, 20, 30, 40, 50, 60, 70, 80, 90, 100],
-    'sample_rate': [0.7, 0.8, 0.9],
-    'col_sample_rate': [0.7, 0.8, 0.9],
-    'min_rows': [2, 3, 4]
-}
+        best_by_ntrees = {}
+        for ntrees, aucpr_value in rows:
+            best_by_ntrees[ntrees] = max(
+                best_by_ntrees.get(ntrees, -1),
+                aucpr_value,
+            )
 
-gbm_base = H2OGradientBoostingEstimator(
-    seed=1234,
-    balance_classes=True,
-    class_sampling_factors=[1.0, 11.0],
-    nfolds=2,
-    keep_cross_validation_predictions=True,
-    fold_assignment="Stratified"
-)
+        ntree_values = sorted(best_by_ntrees)
+        aucpr_values = [best_by_ntrees[value] for value in ntree_values]
+        fig, ax = plt.subplots(figsize=(10, 6))
+        ax.plot(ntree_values, aucpr_values, marker="o", linewidth=2)
+        ax.set_xlabel("Number of Trees (ntrees)")
+        ax.set_ylabel("Test AUCPR")
+        ax.set_title("Test AUCPR vs Number of Trees")
+        ax.grid(True, alpha=0.3)
+        fig.tight_layout()
+        save_figure(
+            fig,
+            args.output_dir / "test_aucpr_vs_ntrees.png",
+            args.show,
+        )
 
-grid = H2OGridSearch(
-    model=gbm_base,
-    hyper_params=hyper_params,
-    search_criteria={'strategy': "Cartesian"}
-)
+        grid_perf = grid.get_grid(sort_by="aucpr", decreasing=True)
+        print("\n--- Top Models from Grid Search (Sorted by CV AUCPR) ---")
+        print(grid_perf)
+        best_gbm = grid_perf.models[0]
 
-grid.train(x=X, y=y, training_frame=train)
+        cv_pred = best_gbm.cross_validation_holdout_predictions()
+        cv_scores = cv_pred.as_data_frame()["p1"].values
+        cv_true = train[target].as_data_frame()[target].values
 
-rows = []
-for m in grid.models:
-    ntrees = m.actual_params["ntrees"]
-    test_aucpr = m.model_performance(test_data=test).aucpr()
-    rows.append((ntrees, test_aucpr))
+        thresholds = np.linspace(0.01, 0.99, 200)
+        best_f2 = -1.0
+        best_threshold = None
+        for threshold in thresholds:
+            y_pred = (cv_scores >= threshold).astype(int)
+            tn, fp, fn, tp = confusion_matrix(
+                cv_true,
+                y_pred,
+                labels=[0, 1],
+            ).ravel()
+            precision = tp / (tp + fp) if tp + fp else 0.0
+            recall = tp / (tp + fn) if tp + fn else 0.0
+            denominator = 4 * precision + recall
+            f2 = 5 * precision * recall / denominator if denominator else 0.0
+            if f2 > best_f2:
+                best_f2 = f2
+                best_threshold = threshold
 
-best_by_ntrees = {}
-for ntrees, aucpr in rows:
-    best_by_ntrees[ntrees] = max(best_by_ntrees.get(ntrees, -1), aucpr)
+        test_scores = best_gbm.predict(test).as_data_frame()["p1"].values
+        y_test = test[target].as_data_frame()[target].values
+        y_test_pred = (test_scores >= best_threshold).astype(int)
+        tn, fp, fn, tp = confusion_matrix(
+            y_test,
+            y_test_pred,
+            labels=[0, 1],
+        ).ravel()
+        precision = tp / (tp + fp) if tp + fp else 0.0
+        recall = tp / (tp + fn) if tp + fn else 0.0
+        accuracy = (tp + tn) / (tp + tn + fp + fn)
 
-nt_list = sorted(best_by_ntrees.keys())
-aucpr_list = [best_by_ntrees[n] for n in nt_list]
+        print("\n--- Best F2 Threshold (Cross-Validation) ---")
+        print(f"Threshold: {best_threshold:.3f}")
+        print(f"Cross-validation F2 Score: {best_f2:.4f}")
+        print("\n--- Test Confusion Matrix at CV-Selected F2 Threshold ---")
+        print(f"TN: {tn}, FP: {fp}")
+        print(f"FN: {fn}, TP: {tp}")
+        print("\n--- Test Metrics ---")
+        print(f"Precision: {precision:.4f}")
+        print(f"Recall: {recall:.4f}")
+        print(f"Accuracy: {accuracy:.4f}")
 
-plt.figure(figsize=(10, 6))
-plt.plot(nt_list, aucpr_list, marker='o', linewidth=2)
-plt.xlabel("Number of Trees (ntrees)")
-plt.ylabel("Test AUCPR")
-plt.title("Test AUCPR vs Number of Trees")
-plt.grid(True, alpha=0.3)
-plt.tight_layout()
-#plt.savefig('aucpr_vs_ntrees.png')
-plt.show()
+        precision_values, recall_values, _ = precision_recall_curve(y_test, test_scores)
+        average_precision = average_precision_score(y_test, test_scores)
+        fig, ax = plt.subplots(figsize=(8, 6))
+        ax.plot(
+            recall_values,
+            precision_values,
+            linewidth=2,
+            label=f"Average precision = {average_precision:.3f}",
+        )
+        ax.set_xlabel("Recall")
+        ax.set_ylabel("Precision")
+        ax.set_title("Precision-Recall Curve (Best GBM)")
+        ax.grid(True, alpha=0.3)
+        ax.legend()
+        fig.tight_layout()
+        save_figure(fig, args.output_dir / "precision_recall_curve.png", args.show)
 
-grid_perf = grid.get_grid(sort_by="aucpr", decreasing=True)
+        fpr, tpr, _ = roc_curve(y_test, test_scores)
+        roc_auc = auc(fpr, tpr)
+        fig, ax = plt.subplots(figsize=(8, 6))
+        ax.plot(fpr, tpr, linewidth=2, label=f"ROC AUC = {roc_auc:.3f}")
+        ax.plot([0, 1], [0, 1], linestyle="--", linewidth=1)
+        ax.set_xlabel("False Positive Rate")
+        ax.set_ylabel("True Positive Rate")
+        ax.set_title("ROC Curve (Best GBM)")
+        ax.grid(True, alpha=0.3)
+        ax.legend()
+        fig.tight_layout()
+        save_figure(fig, args.output_dir / "roc_curve.png", args.show)
 
-print("\n--- Top Models from Grid Search (Sorted by AUCPR) ---")
-print(grid_perf)
+        print(f"Best model test average precision: {average_precision:.4f}")
+        print(f"Best model test ROC AUC: {roc_auc:.4f}")
+        print("\n--- Best Model Hyperparameters ---")
+        print(
+            f"Max Depth: {best_gbm.actual_params['max_depth']}, "
+            f"Learning Rate: {best_gbm.actual_params['learn_rate']}, "
+            f"Number of Trees: {best_gbm.actual_params['ntrees']}, "
+            f"Sample Rate: {best_gbm.actual_params['sample_rate']}, "
+            f"Col Sample Rate: {best_gbm.actual_params['col_sample_rate']}, "
+            f"Min Rows: {best_gbm.actual_params['min_rows']}"
+        )
+        print(f"\nElapsed time: {time.perf_counter() - start_time:.2f} seconds")
+    finally:
+        h2o.cluster().shutdown(prompt=False)
 
-best_gbm = grid_perf.models[0]
 
-cv_pred = best_gbm.cross_validation_holdout_predictions()
-cv_pred_df = cv_pred.as_data_frame()
-cv_true = train[y].as_data_frame()[y].values
-cv_scores = cv_pred_df["p1"].values
-
-thresholds = np.linspace(0.01, 0.99, 200)
-
-best_f2 = -1
-best_threshold = None
-best_cm = None
-
-for t in thresholds:
-    y_pred = (cv_scores >= t).astype(int)
-
-    tn, fp, fn, tp = confusion_matrix(cv_true, y_pred, labels=[0, 1]).ravel()
-
-    precision = tp / (tp + fp) if (tp + fp) > 0 else 0
-    recall = tp / (tp + fn) if (tp + fn) > 0 else 0
-
-    f2 = 0
-    if precision + recall > 0:
-        f2 = (5 * precision * recall) / (4 * precision + recall)
-    else:
-        f2 = 0
-
-    if f2 > best_f2:
-        best_f2 = f2
-        best_threshold = t
-        best_cm = (tn, fp, fn, tp)
-
-test_pred = best_gbm.predict(test).as_data_frame()["p1"].values
-y_test = test[y].as_data_frame()[y].values
-y_test_pred = (test_pred >= best_threshold).astype(int)
-tn, fp, fn, tp = confusion_matrix(y_test, y_test_pred, labels=[0, 1]).ravel()
-
-precision = tp / (tp + fp)
-recall = tp / (tp + fn)
-accuracy = (tp + tn) / (tp + tn + fp + fn)
-
-print("\n--- Best F2 Threshold ---")
-print(f"Threshold: {best_threshold:.3f}")
-print(f"F2 Score: {best_f2:.4f}")
-
-print("\n--- Confusion Matrix at F2 Threshold ---")
-print(f"TN: {tn}, FP: {fp}")
-print(f"FN: {fn}, TP: {tp}")
-
-print("\n--- Metrics ---")
-print(f"Precision: {precision:.4f}")
-print(f"Recall: {recall:.4f}")
-print(f"Accuracy: {accuracy:.4f}")
-
-prec, rec, pr_thresholds = precision_recall_curve(y_test, test_pred)
-aucpr = average_precision_score(y_test, test_pred)
-
-plt.figure(figsize=(8, 6))
-plt.plot(rec, prec, linewidth=2, label=f"AUCPR = {aucpr:.3f}")
-plt.xlabel("Recall")
-plt.ylabel("Precision")
-plt.title("Precision–Recall Curve (Best GBM)")
-plt.grid(True, alpha=0.3)
-plt.legend()
-plt.tight_layout()
-#plt.savefig('simple_aucpr.png')
-plt.show()
-
-fpr, tpr, roc_thresholds = roc_curve(y_test, test_pred)
-roc_auc = auc(fpr, tpr)
-
-plt.figure(figsize=(8, 6))
-plt.plot(fpr, tpr, linewidth=2, label=f"AUC = {roc_auc:.3f}")
-plt.plot([0, 1], [0, 1], linestyle="--", linewidth=1)  # chance line
-plt.xlabel("False Positive Rate")
-plt.ylabel("True Positive Rate")
-plt.title("ROC Curve (Best GBM)")
-plt.grid(True, alpha=0.3)
-plt.legend()
-plt.tight_layout()
-#plt.savefig('roc_curve.png')
-plt.show()
-
-print(f"Best model test AUCPR: {aucpr:.4f}")
-print(f"Best model test AUC:   {roc_auc:.4f}")
-
-print(f"\n--- Best Model Hyperparameters ---")
-print(f"Max Depth: {best_gbm.actual_params['max_depth']}, Learning Rate: {best_gbm.actual_params['learn_rate']}, Number of Trees: {best_gbm.actual_params['ntrees']}, Sample Rate: {best_gbm.actual_params['sample_rate']}, Col Sample Rate: {best_gbm.actual_params['col_sample_rate']}, Min Rows: {best_gbm.actual_params['min_rows']}")
-
-end_time = time.perf_counter()
-print("\ntime taken: ", (end_time - start_time))
-
-h2o.cluster().shutdown()
+if __name__ == "__main__":
+    main()

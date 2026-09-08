@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 import argparse
-import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, Tuple
@@ -11,6 +10,7 @@ from h2o.estimators import H2OGradientBoostingEstimator
 
 PART3_DIR = Path(__file__).resolve().parent.parent
 DATA_DIR = PART3_DIR / "data"
+OUTPUT_DIR = PART3_DIR / "outputs" / "tc_bucket_gbm"
 
 
 @dataclass
@@ -76,7 +76,15 @@ def parse_args():
     ap.add_argument("--col_sample_rate", type=float, default=0.8)
     ap.add_argument("--min_rows", type=int, default=10)
 
-    ap.add_argument("--outdir", default="tc_bucket_results")
+    ap.add_argument(
+        "--early-stopping",
+        action="store_true",
+        help="Enable validation-based early stopping.",
+    )
+    ap.add_argument("--stopping-rounds", type=int, default=5)
+    ap.add_argument("--stopping-tolerance", type=float, default=0.001)
+    ap.add_argument("--stopping-metric", default="RMSE")
+    ap.add_argument("--outdir", type=Path, default=OUTPUT_DIR)
     return ap.parse_args()
 
 
@@ -186,7 +194,13 @@ def train_eval_gbm(
 
 def main():
     args = parse_args()
-    os.makedirs(args.outdir, exist_ok=True)
+    if not 0 < args.test_frac < 1:
+        raise ValueError("--test_frac must be between 0 and 1")
+    if not 0 < args.valid_frac < 1:
+        raise ValueError("--valid_frac must be between 0 and 1")
+    if args.test_frac + args.valid_frac >= 1:
+        raise ValueError("--test_frac + --valid_frac must be less than 1")
+    args.outdir.mkdir(parents=True, exist_ok=True)
 
     df = pd.read_csv(args.data)
     if args.target not in df.columns:
@@ -197,46 +211,55 @@ def main():
 
     h2o.init()
 
-    rows = []
-    for name, bucket_df in buckets.items():
-        if len(bucket_df) < 100:
-            print(f"[WARN] Bucket '{name}' only has {len(bucket_df)} rows — metrics may be noisy.")
+    try:
+        rows = []
+        for name, bucket_df in buckets.items():
+            if len(bucket_df) < 100:
+                print(
+                    f"[WARN] Bucket '{name}' only has {len(bucket_df)} rows; "
+                    "metrics may be noisy."
+                )
 
-        hf = h2o.H2OFrame(bucket_df)
+            hf = h2o.H2OFrame(bucket_df)
+            hf[args.target] = hf[args.target].asnumeric()
 
-        # Ensure target is numeric
-        # If it's imported as enum then forced conversion
-        hf[args.target] = hf[args.target].asnumeric()
+            print(
+                f"\n[INFO] Training bucket '{name}' (n={hf.nrows}, "
+                f"Tc range {bucket_df[args.target].min():.3f}.."
+                f"{bucket_df[args.target].max():.3f})"
+            )
+            model, metrics = train_eval_gbm(hf, args.target, args)
 
-        print(f"\n[INFO] Training bucket '{name}' (n={hf.nrows}, Tc range {bucket_df[args.target].min():.3f}..{bucket_df[args.target].max():.3f})")
-        model, metrics = train_eval_gbm(hf, args.target, args)
+            model_path = h2o.save_model(
+                model=model,
+                path=str(args.outdir),
+                force=True,
+            )
+            print(f"[INFO] Saved model: {model_path}")
 
-        model_path = h2o.save_model(model=model, path=args.outdir, force=True)
-        print(f"[INFO] Saved model: {model_path}")
+            rows.append({
+                "bucket": name,
+                "n_rows": metrics.n_rows,
+                "tc_min": metrics.tc_min,
+                "tc_mean": metrics.tc_mean,
+                "tc_max": metrics.tc_max,
+                "train_RMSE": metrics.train_rmse,
+                "valid_RMSE": metrics.valid_rmse,
+                "test_RMSE": metrics.test_rmse,
+                "train_MAE": metrics.train_mae,
+                "valid_MAE": metrics.valid_mae,
+                "test_MAE": metrics.test_mae,
+            })
 
-        rows.append({
-            "bucket": name,
-            "n_rows": metrics.n_rows,
-            "tc_min": metrics.tc_min,
-            "tc_mean": metrics.tc_mean,
-            "tc_max": metrics.tc_max,
-            "train_RMSE": metrics.train_rmse,
-            "valid_RMSE": metrics.valid_rmse,
-            "test_RMSE": metrics.test_rmse,
-            "train_MAE": metrics.train_mae,
-            "valid_MAE": metrics.valid_mae,
-            "test_MAE": metrics.test_mae,
-        })
+        summary = pd.DataFrame(rows).sort_values("bucket")
+        print("\n===== Summary (GBM by Tc bucket) =====")
+        print(summary.to_string(index=False))
 
-    summary = pd.DataFrame(rows).sort_values("bucket")
-    print("\n===== Summary (GBM by Tc bucket) =====")
-    print(summary.to_string(index=False))
-
-    out_csv = os.path.join(args.outdir, "gbm_tc_bucket_summary.csv")
-    summary.to_csv(out_csv, index=False)
-    print(f"\n[INFO] Saved summary CSV: {out_csv}")
-
-    h2o.shutdown(prompt=False)
+        out_csv = args.outdir / "gbm_tc_bucket_summary.csv"
+        summary.to_csv(out_csv, index=False)
+        print(f"\n[INFO] Saved summary CSV: {out_csv}")
+    finally:
+        h2o.shutdown(prompt=False)
 
 
 if __name__ == "__main__":
