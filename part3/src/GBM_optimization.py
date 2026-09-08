@@ -2,6 +2,7 @@
 
 import argparse
 import time
+from pathlib import Path
 from typing import Dict, Any, List
 
 import numpy as np
@@ -11,6 +12,9 @@ from sklearn.model_selection import train_test_split
 
 import h2o
 from h2o.estimators import H2OGradientBoostingEstimator
+
+PART3_DIR = Path(__file__).resolve().parent.parent
+DATA_DIR = PART3_DIR / "data"
 
 # Data loading & preprocessing
 def load_and_filter_outliers(
@@ -608,7 +612,7 @@ def main():
     parser.add_argument(
         "--data-path",
         type=str,
-        default="../Part3/images/superconductivty-data/train.csv",
+        default=str(DATA_DIR / "train.csv"),
         help="Path to superconductivity CSV (must include 'critical_temp').",
     )
     parser.add_argument(

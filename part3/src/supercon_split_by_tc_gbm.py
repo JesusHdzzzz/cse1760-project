@@ -2,11 +2,15 @@
 import argparse
 import os
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Dict, Tuple
 
 import pandas as pd
 import h2o
 from h2o.estimators import H2OGradientBoostingEstimator
+
+PART3_DIR = Path(__file__).resolve().parent.parent
+DATA_DIR = PART3_DIR / "data"
 
 
 @dataclass
@@ -25,7 +29,7 @@ class Metrics:
 
 def parse_args():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--data", default= "../Part3/images/superconductivty-data/train.csv", required=False, help="Path to SuperCon CSV")
+    ap.add_argument("--data", default=str(DATA_DIR / "train.csv"), required=False, help="Path to SuperCon CSV")
     ap.add_argument("--target", default="critical_temp", help="Target column (Tc)")
     ap.add_argument("--seed", type=int, default=42)
 

@@ -1,8 +1,12 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
+from pathlib import Path
 
-df = pd.read_csv("images/superconductivty-data/train.csv")
+PART3_DIR = Path(__file__).resolve().parent.parent
+DATA_DIR = PART3_DIR / "data"
+
+df = pd.read_csv(DATA_DIR / "train.csv")
 
 def plot_target_distribution(df, target_col, save=False, save_prefix="target_dist"):
     """

@@ -1,4 +1,5 @@
 import pandas as pd
+from pathlib import Path
 from sklearn.model_selection import train_test_split, GridSearchCV
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import (roc_auc_score, average_precision_score, classification_report, accuracy_score)
@@ -7,10 +8,14 @@ import numpy as np
 import matplotlib.pyplot as plt
 import time
 
+PART3_DIR = Path(__file__).resolve().parent.parent
+DATA_DIR = PART3_DIR / "data"
+DATA_PATH = DATA_DIR / "healthcare-dataset-stroke-data.csv"
+
 try:
-    df = pd.read_csv('data/healthcare-dataset-stroke-data.csv')
+    df = pd.read_csv(DATA_PATH)
 except FileNotFoundError:
-    print("Error: 'healthcare-dataset-stroke-data.csv' not found. Please ensure the file is in the correct directory.")
+    print(f"Error: '{DATA_PATH}' not found. Please ensure the file is in the correct directory.")
     exit()
 
 start_time = time.perf_counter()

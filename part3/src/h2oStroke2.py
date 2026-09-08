@@ -2,17 +2,21 @@ import pandas as pd
 import h2o
 from h2o.estimators.gbm import H2OGradientBoostingEstimator
 from h2o.grid.grid_search import H2OGridSearch
+from pathlib import Path
 import warnings
 import time
 from sklearn.metrics import precision_recall_curve, average_precision_score, roc_curve, auc, confusion_matrix
 import matplotlib.pyplot as plt
 import numpy as np
 
+PART3_DIR = Path(__file__).resolve().parent.parent
+DATA_DIR = PART3_DIR / "data"
+
 warnings.filterwarnings('ignore', category=FutureWarning)
 
 start_time = time.perf_counter()
 
-df = pd.read_csv("data/healthcare-dataset-stroke-data.csv")
+df = pd.read_csv(DATA_DIR / "healthcare-dataset-stroke-data.csv")
 
 bmi_median = df['bmi'].median()
 df['bmi'].fillna(bmi_median, inplace=True)
