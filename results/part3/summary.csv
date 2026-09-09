@@ -1,0 +1,7 @@
+experiment,task,result_scope,selection_metric,selection_metric_value,selected_configuration,test_average_precision,test_roc_auc,test_rmse,test_mae,deployable
+stroke_random_forest,stroke classification,test,cross-validation average precision,0.1693102246075464,"n_estimators=550; max_depth=5; min_samples_split=10",0.22302907519697732,0.8232716049382716,,,true
+stroke_h2o_gbm,stroke classification,test,H2O cross-validation AUCPR,0.22150686597074953,"ntrees=100; max_depth=4; learn_rate=0.01; sample_rate=0.7; col_sample_rate=0.7; min_rows=2.0",0.232885186216853,0.8395576131687242,,,true
+supercon_gbm,critical-temperature regression,test,validation RMSE,10.157488953907027,gbm_n1100_d11_lr03,,,9.440011356430977,5.247424423546293,true
+supercon_target_conditioned_low,critical-temperature regression,target-conditioned diagnostic test,,,gbm_n800_d11_lr03,,,1.5521907961619337,1.0756046131040993,false
+supercon_target_conditioned_medium,critical-temperature regression,target-conditioned diagnostic test,,,gbm_n800_d11_lr03,,,5.569021001237886,3.710997403954821,false
+supercon_target_conditioned_high,critical-temperature regression,target-conditioned diagnostic test,,,gbm_n800_d11_lr03,,,11.109762502965618,7.661069789558082,false

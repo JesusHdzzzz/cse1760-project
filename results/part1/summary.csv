@@ -1,0 +1,3 @@
+experiment,selection_metric,selected_hyperparameter,selected_cv_accuracy,validation_accuracy_before_refit,final_test_accuracy
+logistic_regression,five-fold cross-validation accuracy on training split,C=0.1,0.97,0.963,0.974
+random_forest,five-fold cross-validation accuracy on training split,n_estimators=500,0.977,0.967,0.982
