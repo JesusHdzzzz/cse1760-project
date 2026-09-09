@@ -5,7 +5,8 @@ submissions and regenerated outputs.
 
 | Artifact | Classification | Rationale |
 | --- | --- | --- |
-| `README.md`, part-level READMEs | Current | Describe the revised implementation and rerun status. |
+| `README.md`, part-level READMEs | Current | Describe the revised implementation, completed rerun, and current results. |
+| [`results/`](results/) | Current curated portfolio results | Summaries and selected validated plots from source run `portfolio-2026-09-09_19-22-42` at experiment commit `fb9cf477da00c505d6403258ea2f0cd622572787`. |
 | `part1/reports/report1.pdf` | Historical coursework artifact | Original submitted report; methodology/text may differ from current code. |
 | `part1/reports/Part 1 Script Run instructions.pdf` | Historical coursework artifact | Contains obsolete run instructions; current commands are in Markdown. |
 | `part1/graphs/LogisticRegression.png`, `RandomForest.png` | Historical coursework artifact | Original figures with incomplete run provenance. |
@@ -14,10 +15,13 @@ submissions and regenerated outputs.
 | `part2/results/**/*.txt`, `*.pdf`, `*.eps` | Historical and stale | Metrics/plots depend on the incorrect label conversion. |
 | Ignored local Part 2 `*.pkl`/transformer files | Stale generated output | Predate the label correction; not tracked and should not be reported. |
 | `part3/contributors.pdf` | Historical coursework artifact | Contributor record, not an experimental result. |
-| `part3/logs/` and `part3/outputs/` | Generated output | Ignored; local files may predate current methodology. |
+| Root `logs/` and `part*/outputs/` | Bulk generated output | Ignored; the completed source run remains local while selected summaries and plots are tracked under `results/`. |
+| `part3/logs/` | Historical generated output | Ignored; local files may predate current methodology. |
 | Root `results_superconductivity_gbm_sweep.csv` | Removed | Stale generated result at the wrong repository level. |
-| Future `part1/outputs/`, `part2/outputs/`, `part3/outputs/` | Generated output | Current only when produced by the revised scripts with recorded metadata. |
 
 Historical PDFs are intentionally unchanged. They are preserved as original
-course submissions rather than silently rewriting quantitative claims without
-rerunning the experiments.
+course submissions rather than presenting old quantitative claims as current.
+
+The current summaries and selected plots under `results/` were curated from the
+successful corrected run. See [results/README.md](results/README.md) for metrics,
+interpretation, provenance, and diagnostic caveats.

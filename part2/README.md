@@ -29,4 +29,6 @@ features, not as an independently reproducible representation-learning pipeline.
 
 All files under `part2/results/` and `part2/reports/` predate the corrected label
 mapping. They are historical/stale and must not be quoted as results from the
-current implementation. New runs write to ignored `part2/outputs/` directories.
+current implementation. [Current curated rerun results](../results/part2/) are
+published separately; full generated runs write to ignored `part2/outputs/`
+directories.

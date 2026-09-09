@@ -77,8 +77,9 @@ The SuperCon source is [UCI dataset 464](https://archive.ics.uci.edu/dataset/464
 DOI `10.24432/C53P47`, licensed CC BY 4.0. The stroke Kaggle page says the data
 is for educational use and should be credited to its author.
 
-Current Part 3 experiments require reruns after the methodology changes. No
-historical metric is presented as a current estimate.
+The corrected Part 3 workflows were successfully rerun. [Selected current
+results](../results/part3/) are published separately from the ignored bulk output;
+historical coursework artifacts are not presented as current estimates.
 
 The H2O stroke candidate space contains 2,430 configurations, but the seeded
 random-discrete search is capped by `--max-models` (default 30). The bounded

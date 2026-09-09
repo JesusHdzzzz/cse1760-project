@@ -25,6 +25,9 @@ is refit on train plus validation and tested once. Candidate training/validation
 scores therefore describe a different fitted model from the final test score;
 the scripts do not report their difference as a generalization gap.
 
+[Current curated rerun results](../results/part1/) are published separately from
+the generated output tree.
+
 New figures and JSON metadata are written to `part1/outputs/`. Files under
 `graphs/` and `reports/` are historical course artifacts and are not current
 results for the refactored scripts.

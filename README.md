@@ -1,22 +1,26 @@
 # CSE 176 Machine Learning Project
 
+[View curated current results](results/README.md)
+
 ## Project Overview
 
-This repository contains three stages of undergraduate machine-learning coursework,
-later reorganized into reproducible command-line experiments. The work progresses
-from classical binary classification on MNIST, through multiclass XGBoost models,
-to imbalanced classification and materials-property regression with scikit-learn
-and H2O.
+This repository began as three stages of undergraduate machine-learning coursework
+and was later refactored for reproducibility and portfolio presentation. The work
+progresses from classical binary classification on MNIST, through multiclass
+XGBoost models, to imbalanced classification and materials-property regression
+with scikit-learn and H2O.
 
-The code emphasizes defensible train/validation/test responsibilities and records
-run metadata. Full experiments have not been rerun since the latest correctness
-changes, so historical metrics are not presented as current results.
+The corrected experiment suite was successfully rerun. Current metrics and
+selected validated artifacts are published under `results/`; bulk generated
+outputs remain ignored under each part's `outputs/` directory. The code emphasizes
+defensible train/validation/test responsibilities and records run metadata.
 
 ## Repository Structure
 
 - `part1/`: logistic regression and random forest classification of MNIST digits 5 and 6.
 - `part2/`: XGBoost classification of all MNIST digits using pixels or precomputed LeNet features.
 - `part3/`: stroke classification and SuperCon critical-temperature regression/diagnostics.
+- `results/`: current curated portfolio metrics and selected validated artifacts.
 - `tests/`: lightweight loader, label, split, preprocessing, and CLI smoke tests.
 - `ARTIFACTS.md`: status and provenance of reports, plots, and result files.
 
@@ -26,8 +30,8 @@ Part 1 uses `MNISTmini.mat` and compares a scaled logistic-regression pipeline
 with a random forest. A deterministic stratified 1,000/1,000/1,000
 train/validation/test subset is used by default. Hyperparameters are selected by
 five-fold cross-validation on the training split; the selected model is refit on
-train plus validation and evaluated once on test. The current scripts are ready
-to rerun. Tracked plots and PDFs are historical coursework artifacts.
+train plus validation and evaluated once on test. Tracked plots and PDFs outside
+the curated `results/` tree are historical coursework artifacts.
 
 ## Part 2
 
@@ -41,8 +45,9 @@ three-fold LeNet search.
 
 The MAT encoding is converted semantically: raw label `10` becomes digit `0`,
 while raw labels `1` through `9` remain unchanged. All tracked Part 2 metrics,
-plots, reports, and locally saved models predate this correction and are stale
-until both experiments are rerun.
+plots, and reports under `part2/results/` and `part2/reports/` predate this
+correction and remain historical/stale. Current corrected results are published
+under `results/part2/`.
 
 ## Part 3
 
@@ -64,6 +69,20 @@ only to model-fitting rows. Candidate GBMs are selected by validation RMSE,
 followed by one final evaluation on the unfiltered test split.
 The separate target-bucket script is explicitly diagnostic: it uses the true
 critical temperature to route rows and is not a deployable predictor.
+
+## Current Results Snapshot
+
+| Part | Experiment             | Final result              |
+| ---- | ---------------------- | ------------------------- |
+| 1    | Logistic Regression    | Test accuracy 0.9740      |
+| 1    | Random Forest          | Test accuracy 0.9820      |
+| 2    | XGBoost Pixels         | Test accuracy 0.9610      |
+| 2    | XGBoost LeNet Features | Test accuracy 0.9833      |
+| 3    | Stroke Random Forest   | AP 0.2230; ROC AUC 0.8233 |
+| 3    | Stroke H2O GBM         | AP 0.2329; ROC AUC 0.8396 |
+| 3    | SuperCon GBM           | RMSE 9.4400; MAE 5.2474   |
+
+[View full selection metrics, figures, provenance, and caveats](results/README.md).
 
 ## Setup
 
@@ -104,7 +123,18 @@ The paired SuperCon files match the [UCI Superconductivity Data set](https://arc
 (DOI `10.24432/C53P47`, CC BY 4.0). Checksums and schemas are in
 `part3/README.md`.
 
-## Running Experiments
+## Run the Full Portfolio Experiment Suite
+
+The runner executes every workflow sequentially in a timestamped output tree,
+saves per-experiment logs, and reports individual failures without abandoning
+later jobs.
+
+```bash
+chmod +x experiment_runner.sh
+./experiment_runner.sh
+```
+
+## Run Individual Experiments
 
 Commands below work from the repository root. Use `--help` to inspect options.
 Generated artifacts go under each part's ignored `outputs/` directory.
@@ -131,12 +161,13 @@ predictable filenames and overwrite same-named artifacts if a directory is reuse
 
 ## Results
 
-No quantitative result is currently claimed for the revised implementation.
-Part 1 figures, the Part 2 reports/results, and Part 3 course materials were
-produced by earlier code or methodology and are retained only as historical
-coursework artifacts. After rerunning, current scripts write model-selection
-tables, final metrics, fitted models, figures, seeds, splits, and configuration
-metadata beneath `part*/outputs/`.
+The corrected portfolio rerun completed successfully. Curated summaries and
+selected plots are tracked under [`results/`](results/README.md); full generated
+outputs, fitted models, logs, and detailed metadata remain local and ignored.
+
+Part 1 figures outside `results/`, the old Part 2 reports/results, and Part 3
+course materials were produced by earlier code or methodology and are retained
+only as historical coursework artifacts.
 
 ## Reproducibility
 
@@ -152,7 +183,7 @@ metadata beneath `part*/outputs/`.
 - Course-supplied MNIST and LeNet feature provenance is incomplete, and the LeNet feature extractor/checkpoint is unavailable.
 - Part 2 pixel tuning uses two-fold CV to control runtime, increasing selection variance.
 - The stroke dataset is small and highly imbalanced; metrics are educational and not clinical evidence.
-- H2O searches are expensive and have not been rerun after the evaluation fixes.
+- H2O searches are computationally expensive compared with the other workflows.
 - SuperCon elemental-composition grouping assumes the two UCI CSV files retain their documented row alignment; the loader verifies row count and target equality because no explicit row ID exists.
 - Elemental composition does not capture crystal structure, phase, pressure, defects, or synthesis conditions.
 - Target-conditioned SuperCon bucket metrics cannot be compared with end-to-end predictor performance.
@@ -162,5 +193,7 @@ metadata beneath `part*/outputs/`.
 This repository began as a multi-part course submission. It was later reorganized
 to remove import-time execution, make paths and seeds configurable, isolate
 generated outputs, correct label semantics and evaluation leakage, and add an
-editable documentation layer suitable for an undergraduate portfolio. Original
-PDFs and selected figures remain available as clearly labeled historical context.
+editable documentation layer suitable for an undergraduate portfolio. The
+corrected workflows were then rerun and a compact validated result set was
+published. Original PDFs and selected figures remain available as clearly labeled
+historical context.
