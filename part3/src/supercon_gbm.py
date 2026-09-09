@@ -187,10 +187,15 @@ def main() -> None:
             final_model, path=str(args.output_dir), force=True
         )
         metadata = {
-            "status": "current after material-aware split and validation-only selection",
+            "status": (
+                "current after composition-aware split and validation-only selection"
+            ),
             "seed": args.seed,
             "target": args.target,
-            "split_strategy": "group shuffle split using row-aligned unique_m.csv material formulas",
+            "split_strategy": (
+                "group shuffle split using normalized elemental compositions "
+                "from unique_m.csv"
+            ),
             "rows": {
                 "train_before_filter": len(splits.train),
                 "train_after_filter": len(training),
@@ -198,7 +203,7 @@ def main() -> None:
                 "test": len(splits.test),
                 "final_training_after_filter": len(final_training),
             },
-            "unique_materials": {
+            "unique_composition_groups": {
                 "train": splits.train_groups.nunique(),
                 "validation": splits.validation_groups.nunique(),
                 "test": splits.test_groups.nunique(),

@@ -52,11 +52,12 @@ random forest selects by cross-validation average precision; the H2O grid select
 by H2O's cross-validation AUCPR. Test metrics are calculated only after model and
 threshold selection.
 
-The SuperCon GBM uses material-formula groups from the row-aligned
-`unique_m.csv` file to prevent the same formula appearing across train,
-validation, and test. Optional target-outlier bounds are learned from training
-targets and applied only to model-fitting rows. Candidate GBMs are selected by
-validation RMSE, followed by one final evaluation on the unfiltered test split.
+The SuperCon GBM uses normalized elemental-composition groups from the
+row-aligned `unique_m.csv` file to prevent reordered or proportionally scaled
+versions of the same composition appearing across train, validation, and test.
+Optional target-outlier bounds are learned from training targets and applied
+only to model-fitting rows. Candidate GBMs are selected by validation RMSE,
+followed by one final evaluation on the unfiltered test split.
 The separate target-bucket script is explicitly diagnostic: it uses the true
 critical temperature to route rows and is not a deployable predictor.
 
@@ -142,8 +143,8 @@ metadata beneath `part*/outputs/`.
 - Part 2 pixel tuning uses two-fold CV to control runtime, increasing selection variance.
 - The stroke dataset is small and highly imbalanced; metrics are educational and not clinical evidence.
 - H2O searches are expensive and have not been rerun after the evaluation fixes.
-- SuperCon material grouping assumes the two UCI CSV files retain their documented row alignment; the loader verifies row count and target equality because no explicit row ID exists.
-- Material formula does not capture crystal structure, phase, pressure, defects, or synthesis conditions.
+- SuperCon elemental-composition grouping assumes the two UCI CSV files retain their documented row alignment; the loader verifies row count and target equality because no explicit row ID exists.
+- Elemental composition does not capture crystal structure, phase, pressure, defects, or synthesis conditions.
 - Target-conditioned SuperCon bucket metrics cannot be compared with end-to-end predictor performance.
 
 ## Project Evolution

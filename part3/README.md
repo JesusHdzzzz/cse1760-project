@@ -44,11 +44,14 @@ The test set is used only for final evaluation and plots.
 ## SuperCon Methodology
 
 The paired UCI files are verified to have equal row counts and identical row-wise
-targets. The `material` formula from `unique_m.csv` is used as a grouping key in
-deterministic approximately 70/15/15 train/validation/test group splits. This prevents one
-formula from appearing in multiple splits. It is more defensible than random row
-splitting, though formulas alone do not identify structure, phase, pressure, or
-synthesis conditions.
+targets. The 86 elemental amount columns (`H` through `Rn`) in `unique_m.csv`
+are put in atomic-number order, normalized by their row sum, and rounded to 12
+decimal places to form an elemental-composition grouping key. Deterministic,
+approximately 70/15/15 train/validation/test splits are disjoint by this key, so
+reordered or proportionally scaled formulas cannot cross splits. The key does
+not use `material`, `critical_temp`, or other metadata. Elemental composition is
+not complete material identity: it does not capture structure, phase, pressure,
+defects, or synthesis conditions.
 
 The main GBM experiment derives optional IQR outlier bounds from the initial
 training targets. Only rows used for fitting are filtered; validation and final

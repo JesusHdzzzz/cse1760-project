@@ -7,7 +7,11 @@ import pytest
 from data_utils import split_data
 from stroke_utils import impute_bmi_from_training
 from stroke_random_forest import build_pipeline
-from supercon_utils import load_supercon_pair, material_group_split
+from supercon_utils import (
+    canonical_composition_groups,
+    load_supercon_pair,
+    material_group_split,
+)
 from utils_mnist import convert_mnist_labels, load_mnist_mat
 from xgb_experiment import build_pipeline as build_xgb_pipeline
 
@@ -95,6 +99,66 @@ def test_material_group_split_has_no_group_overlap():
     assert len(splits.train) + len(splits.validation) + len(splits.test) == len(data)
 
 
+def test_canonical_composition_groups_ignore_formula_and_column_order():
+    compositions = pd.DataFrame(
+        {
+            "material": ["Rb1Eu1Fe4As4", "Eu1Rb1Fe4As4"],
+            "Rb": [1.0, 1.0],
+            "Eu": [1.0, 1.0],
+            "As": [4.0, 4.0],
+            "Fe": [4.0, 4.0],
+            "critical_temp": [36.5, 36.0],
+        }
+    )
+    reversed_columns = compositions.loc[:, list(reversed(compositions.columns))]
+
+    groups = canonical_composition_groups(compositions)
+    reordered_groups = canonical_composition_groups(reversed_columns)
+
+    assert groups.iloc[0] == groups.iloc[1]
+    assert groups.tolist() == reordered_groups.tolist()
+
+
+def test_canonical_composition_groups_normalize_proportional_amounts():
+    compositions = pd.DataFrame(
+        {
+            "B": [0.3, 3.0],
+            "Ru": [0.7, 7.0],
+            "material": ["B0.3Ru0.7", "B3Ru7"],
+        }
+    )
+
+    groups = canonical_composition_groups(compositions)
+
+    assert groups.iloc[0] == groups.iloc[1]
+
+
+def test_canonical_composition_groups_remove_harmless_float_noise():
+    compositions = pd.DataFrame(
+        {
+            "B": [0.3, 0.1 + 0.2],
+            "Ru": [0.7, 0.7],
+        }
+    )
+
+    groups = canonical_composition_groups(compositions)
+
+    assert groups.iloc[0] == groups.iloc[1]
+
+
+def test_canonical_composition_groups_keep_meaningful_differences():
+    compositions = pd.DataFrame(
+        {
+            "B": [0.3, 0.300001],
+            "Ru": [0.7, 0.699999],
+        }
+    )
+
+    groups = canonical_composition_groups(compositions)
+
+    assert groups.iloc[0] != groups.iloc[1]
+
+
 @pytest.mark.skipif(
     not (ROOT / "part2" / "data" / "MNIST.mat").is_file(),
     reason="course MAT file is not present",
@@ -108,11 +172,38 @@ def test_reviewed_mnist_mat_schema_and_mapping():
     assert int((y == 1).sum()) == 6742
 
 
-def test_tracked_supercon_files_are_row_aligned():
+def test_tracked_supercon_files_are_row_aligned_and_canonically_grouped():
     data, groups = load_supercon_pair(
         ROOT / "part3" / "data" / "train.csv",
         ROOT / "part3" / "data" / "unique_m.csv",
     )
     assert data.shape == (21263, 82)
+    assert data.drop(columns="critical_temp").shape[1] == 81
     assert len(groups) == len(data)
-    assert groups.nunique() == 15542
+    assert groups.nunique() == 15164
+
+    compositions = pd.read_csv(ROOT / "part3" / "data" / "unique_m.csv")
+    by_formula = pd.Series(groups.to_numpy(), index=compositions["material"])
+    assert by_formula["Rb1Eu1Fe4As4"] == by_formula["Eu1Rb1Fe4As4"]
+    assert by_formula["B0.3Ru0.7"] == by_formula["B3Ru7"].iloc[0]
+
+    splits = material_group_split(data, groups, seed=42)
+    group_sets = [
+        set(splits.train_groups),
+        set(splits.validation_groups),
+        set(splits.test_groups),
+    ]
+    assert group_sets[0].isdisjoint(group_sets[1])
+    assert group_sets[0].isdisjoint(group_sets[2])
+    assert group_sets[1].isdisjoint(group_sets[2])
+    assert len(splits.train) + len(splits.validation) + len(splits.test) == len(data)
+
+    feature_sets = [
+        set(
+            split.drop(columns="critical_temp").itertuples(index=False, name=None)
+        )
+        for split in (splits.train, splits.validation, splits.test)
+    ]
+    assert feature_sets[0].isdisjoint(feature_sets[1])
+    assert feature_sets[0].isdisjoint(feature_sets[2])
+    assert feature_sets[1].isdisjoint(feature_sets[2])

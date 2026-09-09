@@ -158,7 +158,7 @@ def main() -> None:
         metadata = {
             "status": "target-conditioned diagnostic; not deployable",
             "seed": args.seed,
-            "split_strategy": "material-formula group split",
+            "split_strategy": "normalized elemental-composition group split",
             "bucket_mode": args.bucket_mode,
             "bucket_bounds_learned_from_training_targets": list(bounds),
             "model_params": {
