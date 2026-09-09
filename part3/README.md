@@ -33,12 +33,13 @@ BMI values. Both scripts remove the single `gender=Other` row and perform a
 stratified train/test split before preprocessing.
 
 The random forest places median/mode imputation and one-hot encoding inside a
-scikit-learn pipeline, including inside five-fold CV. The H2O experiment learns
-the BMI median from the training split, applies it to both splits, uses stratified
-five-fold CV for its grid, and chooses an F2 threshold from out-of-fold training
-predictions. The random forest selects by average precision; the H2O grid selects
-by H2O AUCPR. Reported sklearn curve summaries use average precision, and the two
-names are not used interchangeably.
+scikit-learn pipeline, including inside five-fold CV. The H2O experiment leaves
+BMI values missing and uses H2O GBM's native missing-value split routing, so each
+cross-validation model learns NA routing only from its fold-training rows. Its
+grid uses stratified five-fold CV and chooses an F2 threshold from out-of-fold
+training predictions. The random forest selects by average precision; the H2O
+grid selects by H2O AUCPR. Reported sklearn curve summaries use average
+precision, and the two names are not used interchangeably.
 The test set is used only for final evaluation and plots.
 
 ## SuperCon Methodology

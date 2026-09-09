@@ -7,6 +7,11 @@ import pytest
 from data_utils import split_data
 from stroke_utils import impute_bmi_from_training
 from stroke_random_forest import build_pipeline
+from stroke_h2o_gbm import (
+    BMI_MISSING_VALUE_POLICY,
+    select_model_and_f2_threshold,
+    split_raw_stroke_data,
+)
 from supercon_utils import (
     canonical_composition_groups,
     load_supercon_pair,
@@ -53,6 +58,57 @@ def test_bmi_imputation_uses_training_median_only():
     assert median == 15.0
     assert train_result["bmi"].tolist() == [10.0, 20.0, 15.0]
     assert test_result["bmi"].tolist() == [15.0, 1000.0]
+
+
+def test_h2o_outer_split_preserves_raw_missing_bmi_values():
+    data = pd.DataFrame(
+        {
+            "id": np.arange(40),
+            "bmi": [
+                np.nan if index % 5 == 0 else 20.0 + index
+                for index in range(40)
+            ],
+            "stroke": np.tile([0, 1], 20),
+        }
+    )
+
+    train, test = split_raw_stroke_data(data, test_size=0.2, seed=42)
+
+    assert train["bmi"].isna().sum() + test["bmi"].isna().sum() == 8
+    assert set(train["id"]).isdisjoint(test["id"])
+    assert BMI_MISSING_VALUE_POLICY == "native H2O GBM missing-value handling"
+
+
+def test_h2o_model_and_threshold_selection_uses_training_oof_data_only():
+    class FrameResult:
+        def __init__(self, frame):
+            self.frame = frame
+
+        def as_data_frame(self):
+            return self.frame
+
+    class Model:
+        def cross_validation_holdout_predictions(self):
+            return FrameResult(pd.DataFrame({"p1": [0.1, 0.8, 0.2, 0.9]}))
+
+    class SortedGrid:
+        models = [Model()]
+
+    class Grid:
+        def get_grid(self, sort_by, decreasing):
+            assert sort_by == "aucpr"
+            assert decreasing is True
+            return SortedGrid()
+
+    train = {"stroke": FrameResult(pd.DataFrame({"stroke": [0, 1, 0, 1]}))}
+
+    model, cv_f2, threshold = select_model_and_f2_threshold(
+        Grid(), train, "stroke"
+    )
+
+    assert isinstance(model, Model)
+    assert cv_f2 == 1.0
+    assert 0.2 < threshold <= 0.8
 
 
 def test_random_forest_pipeline_fits_imputer_on_training_rows():

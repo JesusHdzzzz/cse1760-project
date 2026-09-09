@@ -47,10 +47,12 @@ until both experiments are rerun.
 ## Part 3
 
 The stroke experiments compare a class-weighted scikit-learn random forest and
-an H2O GBM. Both use stratified holdouts and training-only preprocessing. The
-random forest selects by cross-validation average precision; the H2O grid selects
-by H2O's cross-validation AUCPR. Test metrics are calculated only after model and
-threshold selection.
+an H2O GBM. Both use stratified holdouts. The random forest keeps preprocessing
+inside its cross-validation pipeline; the H2O GBM retains missing BMI values and
+learns native missing-value routing within each training fold. The random forest
+selects by cross-validation average precision; the H2O grid selects by H2O's
+cross-validation AUCPR. Test metrics are calculated only after model and threshold
+selection.
 
 The SuperCon GBM uses normalized elemental-composition groups from the
 row-aligned `unique_m.csv` file to prevent reordered or proportionally scaled

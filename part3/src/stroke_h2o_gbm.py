@@ -21,11 +21,12 @@ from sklearn.metrics import (
 )
 
 from h2o_utils import init_h2o, shutdown_h2o_if_owned
-from stroke_utils import impute_bmi_from_training, load_stroke_data, stratified_stroke_split
+from stroke_utils import load_stroke_data, stratified_stroke_split
 
 PART3_DIR = Path(__file__).resolve().parent.parent
 DATA_PATH = PART3_DIR / "data" / "healthcare-dataset-stroke-data.csv"
 OUTPUT_DIR = PART3_DIR / "outputs" / "stroke_h2o_gbm"
+BMI_MISSING_VALUE_POLICY = "native H2O GBM missing-value handling"
 
 
 def parse_args() -> argparse.Namespace:
@@ -65,6 +66,24 @@ def save_figure(fig, path: Path, show: bool) -> None:
     plt.close(fig)
 
 
+def split_raw_stroke_data(
+    df: pd.DataFrame, test_size: float, seed: int
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Create the outer split without imputing H2O predictor values."""
+    return stratified_stroke_split(df, test_size, seed)
+
+
+def select_model_and_f2_threshold(grid, train, target: str):
+    """Select from training CV results and its out-of-fold predictions only."""
+    best_model = grid.get_grid(sort_by="aucpr", decreasing=True).models[0]
+    cv_scores = best_model.cross_validation_holdout_predictions().as_data_frame()[
+        "p1"
+    ].to_numpy()
+    cv_true = train[target].as_data_frame()[target].astype(int).to_numpy()
+    cv_f2, threshold = best_f2_threshold(cv_true, cv_scores)
+    return best_model, cv_f2, threshold
+
+
 def main() -> None:
     args = parse_args()
     if not 0 < args.test_size < 1:
@@ -74,18 +93,15 @@ def main() -> None:
 
     start = time.perf_counter()
     df = load_stroke_data(args.data_path)
-    train_df, test_df = stratified_stroke_split(df, args.test_size, args.seed)
-    train_df, test_df, bmi_median = impute_bmi_from_training(train_df, test_df)
+    train_df, test_df = split_raw_stroke_data(df, args.test_size, args.seed)
     args.output_dir.mkdir(parents=True, exist_ok=True)
 
     owned_cluster = init_h2o(args.max_mem_size)
     try:
         train = h2o.H2OFrame(train_df)
-        test = h2o.H2OFrame(test_df)
         target = "stroke"
         features = [column for column in train.columns if column not in {"id", target}]
         train[target] = train[target].asfactor()
-        test[target] = test[target].asfactor()
 
         hyper_params = {
             "max_depth": [4, 6, 8],
@@ -136,14 +152,13 @@ def main() -> None:
             fig, args.output_dir / "tree_count_cv_aucpr.png", args.show
         )
 
-        best_model = grid.get_grid(sort_by="aucpr", decreasing=True).models[0]
-        cv_scores = best_model.cross_validation_holdout_predictions().as_data_frame()[
-            "p1"
-        ].to_numpy()
-        cv_true = train[target].as_data_frame()[target].astype(int).to_numpy()
-        cv_f2, threshold = best_f2_threshold(cv_true, cv_scores)
+        best_model, cv_f2, threshold = select_model_and_f2_threshold(
+            grid, train, target
+        )
 
         # Final test access occurs only after model and decision threshold selection.
+        test = h2o.H2OFrame(test_df)
+        test[target] = test[target].asfactor()
         test_scores = best_model.predict(test).as_data_frame()["p1"].to_numpy()
         y_test = test[target].as_data_frame()[target].astype(int).to_numpy()
         y_pred = (test_scores >= threshold).astype(int)
@@ -172,10 +187,12 @@ def main() -> None:
 
         metadata = {
             "seed": args.seed,
-            "split": "stratified train/test split performed before BMI imputation",
+            "split": (
+                "stratified train/test split with raw predictor missingness retained"
+            ),
             "train_rows": len(train_df),
             "test_rows": len(test_df),
-            "training_bmi_median": bmi_median,
+            "bmi_missing_value_policy": BMI_MISSING_VALUE_POLICY,
             "cv_folds": args.cv_folds,
             "selection_metric": "H2O cross-validation AUCPR",
             "cv_selected_f2_threshold": threshold,
