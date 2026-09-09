@@ -17,7 +17,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Plot the SuperCon target distribution and report IQR outliers."
     )
-    parser.add_argument("--data", type=Path, default=DATA_PATH)
+    parser.add_argument("--data-path", type=Path, default=DATA_PATH)
     parser.add_argument("--target", default="critical_temp")
     parser.add_argument("--output-dir", type=Path, default=OUTPUT_DIR)
     parser.add_argument("--prefix", default="critical_temp")
@@ -90,9 +90,9 @@ def plot_target_distribution(
 
 def main() -> None:
     args = parse_args()
-    if not args.data.is_file():
-        raise FileNotFoundError(f"SuperCon dataset not found: {args.data}")
-    df = pd.read_csv(args.data)
+    if not args.data_path.is_file():
+        raise FileNotFoundError(f"SuperCon dataset not found: {args.data_path}")
+    df = pd.read_csv(args.data_path)
     plot_target_distribution(
         df,
         args.target,

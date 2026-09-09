@@ -1,8 +1,8 @@
-from pathlib import Path 
-import scipy.io 
-import numpy as np
+from pathlib import Path
 
-from sklearn.model_selection import train_test_split 
+import numpy as np
+import scipy.io
+from sklearn.model_selection import train_test_split
 
 DATA_PATH = (
     Path(__file__).resolve().parent.parent
@@ -10,23 +10,38 @@ DATA_PATH = (
     / "MNISTmini.mat" 
 )
 
-def load_mnist(): 
-    mat = scipy.io.loadmat(DATA_PATH) 
+def load_mnist(data_path: Path = DATA_PATH):
+    data_path = Path(data_path)
+    if not data_path.is_file():
+        raise FileNotFoundError(f"MNISTmini dataset not found: {data_path}")
+
+    mat = scipy.io.loadmat(data_path)
+    required_keys = {"train_fea1", "train_gnd1"}
+    missing = required_keys.difference(mat)
+    if missing:
+        raise KeyError(f"Missing MAT keys in {data_path}: {sorted(missing)}")
 
     X = mat["train_fea1"]
     y = mat["train_gnd1"].flatten()
 
     return X, y
 
-def filter_digits(X, y, digits=(5,6)): 
+def filter_digits(X, y, digits=(5, 6)):
     mask = np.isin(y, digits) 
 
     return X[mask], y[mask]
 
-def encode_binary_labels(y, positive_class=6): 
+def encode_binary_labels(y, positive_class=6):
     return (y == positive_class).astype(int)
 
-def split_data(X, y, train_size=1000, val_size=1000, test_size=1000, random_state=42): 
+def split_data(
+    X,
+    y,
+    train_size=1000,
+    val_size=1000,
+    test_size=1000,
+    random_state=42,
+):
     total = train_size + val_size + test_size
 
     X_subset, _, y_subset, _ = train_test_split(
@@ -55,4 +70,3 @@ def split_data(X, y, train_size=1000, val_size=1000, test_size=1000, random_stat
     )
 
     return X_train, X_val, X_test, y_train, y_val, y_test
-

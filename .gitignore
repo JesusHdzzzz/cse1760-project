@@ -46,9 +46,9 @@ htmlcov/
 *.bak
 
 # Large/raw datasets
-
 part1/data/*.mat
 part2/data/*.mat
+
 # Model checkpoints / weights
 *.pt
 *.pth
@@ -64,7 +64,11 @@ outputs/
 checkpoints/
 wandb/
 
-# Misc
-.ipynb_checkpoints/
+# Generated experiment results are written below part-level outputs directories.
+part1/outputs/
+part2/outputs/
+part3/outputs/
+results_*.csv
 
-part2/data/*.mat
+# Jupyter checkpoints
+.ipynb_checkpoints/

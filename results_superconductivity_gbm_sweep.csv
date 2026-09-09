@@ -1,2 +1,0 @@
-experiment,algorithm,train_time_sec,valid_RMSE,valid_MAE,test_rmse,test_mae,n_params,n_trees,max_depth,mean_depth,learn_rate,sample_rate,col_sample_rate,min_rows
-H2O_GBM_Base,GBM,62.16707800142467,9.418284916286177,5.378000243388726,8.828913203342921,5.125129988630516,48823,500,8.0,8.0,0.05,0.8,0.8,5

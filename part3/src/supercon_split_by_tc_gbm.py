@@ -1,265 +1,195 @@
 #!/usr/bin/env python3
-import argparse
-from dataclasses import dataclass
-from pathlib import Path
-from typing import Dict, Tuple
 
-import pandas as pd
+"""Target-conditioned diagnostic analysis; not an end-to-end predictor."""
+
+import argparse
+import json
+from pathlib import Path
+
 import h2o
+import pandas as pd
 from h2o.estimators import H2OGradientBoostingEstimator
 
+from h2o_utils import init_h2o, shutdown_h2o_if_owned
+from supercon_utils import load_supercon_pair, material_group_split
+
 PART3_DIR = Path(__file__).resolve().parent.parent
-DATA_DIR = PART3_DIR / "data"
-OUTPUT_DIR = PART3_DIR / "outputs" / "tc_bucket_gbm"
+DATA_PATH = PART3_DIR / "data" / "train.csv"
+MATERIAL_PATH = PART3_DIR / "data" / "unique_m.csv"
+OUTPUT_DIR = PART3_DIR / "outputs" / "supercon_target_conditioned_diagnostic"
 
 
-@dataclass
-class Metrics:
-    n_rows: int
-    tc_min: float
-    tc_max: float
-    tc_mean: float
-    train_rmse: float
-    valid_rmse: float
-    test_rmse: float
-    train_mae: float
-    valid_mae: float
-    test_mae: float
-
-
-def parse_args():
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--data", default=str(DATA_DIR / "train.csv"), required=False, help="Path to SuperCon CSV")
-    ap.add_argument("--target", default="critical_temp", help="Target column (Tc)")
-    ap.add_argument("--seed", type=int, default=42)
-
-    ap.add_argument(
-        "--bucket_mode",
-        choices=["quantiles", "thresholds"],
-        default="quantiles",
-        help="How to define Low/Med/High Tc buckets",
-    )
-    ap.add_argument(
-        "--q_low",
-        type=float,
-        default=0.3333,
-        help="Quantile cutoff between Low and Medium (quantiles mode)",
-    )
-    ap.add_argument(
-        "--q_high",
-        type=float,
-        default=0.6667,
-        help="Quantile cutoff between Medium and High (quantiles mode)",
-    )
-    ap.add_argument(
-        "--tc_low_max",
-        type=float,
-        default=None,
-        help="Max Tc for Low bucket (thresholds mode)",
-    )
-    ap.add_argument(
-        "--tc_high_min",
-        type=float,
-        default=None,
-        help="Min Tc for High bucket (thresholds mode)",
-    )
-
-    # proportion of data for test/valid sets
-    ap.add_argument("--test_frac", type=float, default=0.15)
-    ap.add_argument("--valid_frac", type=float, default=0.15)
-
-    # GBM hyperparameters, same for all buckets for reusability
-    ap.add_argument("--ntrees", type=int, default=800)
-    ap.add_argument("--max_depth", type=int, default=11)
-    ap.add_argument("--learn_rate", type=float, default=0.03)
-    ap.add_argument("--sample_rate", type=float, default=0.8)
-    ap.add_argument("--col_sample_rate", type=float, default=0.8)
-    ap.add_argument("--min_rows", type=int, default=10)
-
-    ap.add_argument(
-        "--early-stopping",
-        action="store_true",
-        help="Enable validation-based early stopping.",
-    )
-    ap.add_argument("--stopping-rounds", type=int, default=5)
-    ap.add_argument("--stopping-tolerance", type=float, default=0.001)
-    ap.add_argument("--stopping-metric", default="RMSE")
-    ap.add_argument("--outdir", type=Path, default=OUTPUT_DIR)
-    return ap.parse_args()
-
-
-def make_buckets(df: pd.DataFrame, target: str, args) -> Dict[str, pd.DataFrame]:
-    y = df[target]
-
-    if args.bucket_mode == "quantiles":
-        q_low = float(y.quantile(args.q_low))
-        q_high = float(y.quantile(args.q_high))
-
-        low = df[df[target] <= q_low].copy()
-        med = df[(df[target] > q_low) & (df[target] < q_high)].copy()
-        high = df[df[target] >= q_high].copy()
-
-        print(f"[INFO] Quantile thresholds:")
-        print(f"       Low <= {q_low:.3f} K")
-        print(f"       Med  ( {q_low:.3f}, {q_high:.3f} ) K")
-        print(f"       High >= {q_high:.3f} K")
-
-        return {"low": low, "medium": med, "high": high}
-
-    # thresholds mode
-    if args.tc_low_max is None or args.tc_high_min is None:
-        raise ValueError(
-            "thresholds mode requires --tc_low_max and --tc_high_min"
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description=(
+            "Run target-conditioned SuperCon bucket diagnostics. This analysis "
+            "requires the true target for routing and is not deployable."
         )
+    )
+    parser.add_argument("--data-path", type=Path, default=DATA_PATH)
+    parser.add_argument("--material-data-path", type=Path, default=MATERIAL_PATH)
+    parser.add_argument("--output-dir", type=Path, default=OUTPUT_DIR)
+    parser.add_argument("--target", default="critical_temp")
+    parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--validation-size", type=float, default=0.15)
+    parser.add_argument("--test-size", type=float, default=0.15)
+    parser.add_argument(
+        "--bucket-mode", choices=["quantiles", "thresholds"], default="quantiles"
+    )
+    parser.add_argument("--q-low", type=float, default=0.3333)
+    parser.add_argument("--q-high", type=float, default=0.6667)
+    parser.add_argument("--tc-low-max", type=float)
+    parser.add_argument("--tc-high-min", type=float)
+    parser.add_argument("--ntrees", type=int, default=800)
+    parser.add_argument("--max-depth", type=int, default=11)
+    parser.add_argument("--learn-rate", type=float, default=0.03)
+    parser.add_argument("--sample-rate", type=float, default=0.8)
+    parser.add_argument("--col-sample-rate", type=float, default=0.8)
+    parser.add_argument("--min-rows", type=int, default=10)
+    parser.add_argument("--early-stopping", action="store_true")
+    parser.add_argument("--stopping-rounds", type=int, default=5)
+    parser.add_argument("--stopping-tolerance", type=float, default=0.001)
+    parser.add_argument("--stopping-metric", default="RMSE")
+    parser.add_argument("--max-mem-size", default="8G")
+    parser.add_argument("--keep-h2o-cluster", action="store_true")
+    return parser.parse_args()
+
+
+def bucket_bounds(training: pd.DataFrame, target: str, args):
+    if args.bucket_mode == "quantiles":
+        if not 0 < args.q_low < args.q_high < 1:
+            raise ValueError("Require 0 < --q-low < --q-high < 1")
+        return (
+            float(training[target].quantile(args.q_low)),
+            float(training[target].quantile(args.q_high)),
+        )
+    if args.tc_low_max is None or args.tc_high_min is None:
+        raise ValueError("Threshold mode requires --tc-low-max and --tc-high-min")
     if args.tc_low_max >= args.tc_high_min:
-        raise ValueError("--tc_low_max must be < --tc_high_min")
-
-    low = df[df[target] <= args.tc_low_max].copy()
-    med = df[(df[target] > args.tc_low_max) & (df[target] < args.tc_high_min)].copy()
-    high = df[df[target] >= args.tc_high_min].copy()
-
-    print(f"[INFO] Manual thresholds:")
-    print(f"       Low <= {args.tc_low_max:.3f} K")
-    print(f"       Med  ( {args.tc_low_max:.3f}, {args.tc_high_min:.3f} ) K")
-    print(f"       High >= {args.tc_high_min:.3f} K")
-
-    return {"low": low, "medium": med, "high": high}
+        raise ValueError("--tc-low-max must be less than --tc-high-min")
+    return args.tc_low_max, args.tc_high_min
 
 
-def train_eval_gbm(
-    h2o_frame,
-    target: str,
-    args,
-) -> Tuple[H2OGradientBoostingEstimator, Metrics]:
-    # Split within bucket: train / valid / test
-    # Use ratios: first split off test, then split remaining into train/valid.
-    train_valid, test = h2o_frame.split_frame(
-        ratios=[1.0 - args.test_frac],
-        seed=args.seed
+def make_buckets(df: pd.DataFrame, target: str, bounds):
+    low, high = bounds
+    return {
+        "low": df[df[target] <= low].copy(),
+        "medium": df[(df[target] > low) & (df[target] < high)].copy(),
+        "high": df[df[target] >= high].copy(),
+    }
+
+
+def to_h2o_frame(df: pd.DataFrame, target: str):
+    frame = h2o.H2OFrame(df)
+    frame[target] = frame[target].asnumeric()
+    return frame
+
+
+def main() -> None:
+    args = parse_args()
+    data, groups = load_supercon_pair(
+        args.data_path, args.material_data_path, args.target
     )
-    # Now split train_valid into train/valid
-    # valid_frac is with respect to whole dataset; convert to fraction of remaining
-    remain = 1.0 - args.test_frac
-    valid_ratio_of_remain = args.valid_frac / remain
-    train, valid = train_valid.split_frame(
-        ratios=[1.0 - valid_ratio_of_remain],
-        seed=args.seed
-    )
-
-    x = [c for c in h2o_frame.columns if c != target]
-    y = target
-
-    gbm_kwargs = dict(
-        ntrees=args.ntrees,
-        max_depth=args.max_depth,
-        learn_rate=args.learn_rate,
-        sample_rate=args.sample_rate,
-        col_sample_rate=args.col_sample_rate,
-        min_rows=args.min_rows,
+    splits = material_group_split(
+        data,
+        groups,
+        validation_size=args.validation_size,
+        test_size=args.test_size,
         seed=args.seed,
     )
+    bounds = bucket_bounds(splits.train, args.target, args)
+    train_buckets = make_buckets(splits.train, args.target, bounds)
+    validation_buckets = make_buckets(splits.validation, args.target, bounds)
+    test_buckets = make_buckets(splits.test, args.target, bounds)
+    args.output_dir.mkdir(parents=True, exist_ok=True)
 
-    if args.early_stopping:
-        gbm_kwargs.update(
-            stopping_rounds=args.stopping_rounds,
-            stopping_tolerance=args.stopping_tolerance,
-            stopping_metric=args.stopping_metric,
-        )
-
-    model = H2OGradientBoostingEstimator(**gbm_kwargs)
-    model.train(x=x, y=y, training_frame=train, validation_frame=valid)
-
-    # Metrics
-    perf_train = model.model_performance(train=True)
-    perf_valid = model.model_performance(valid=True)
-    perf_test = model.model_performance(test)
-
-    # Tc stats (from the full bucket frame)
-    tc_series = h2o_frame[y].as_data_frame(use_multi_thread=True)[y]
-
-    m = Metrics(
-        n_rows=h2o_frame.nrows,
-        tc_min=float(tc_series.min()),
-        tc_max=float(tc_series.max()),
-        tc_mean=float(tc_series.mean()),
-        train_rmse=float(perf_train.rmse()),
-        valid_rmse=float(perf_valid.rmse()),
-        test_rmse=float(perf_test.rmse()),
-        train_mae=float(perf_train.mae()),
-        valid_mae=float(perf_valid.mae()),
-        test_mae=float(perf_test.mae()),
-    )
-    return model, m
-
-
-def main():
-    args = parse_args()
-    if not 0 < args.test_frac < 1:
-        raise ValueError("--test_frac must be between 0 and 1")
-    if not 0 < args.valid_frac < 1:
-        raise ValueError("--valid_frac must be between 0 and 1")
-    if args.test_frac + args.valid_frac >= 1:
-        raise ValueError("--test_frac + --valid_frac must be less than 1")
-    args.outdir.mkdir(parents=True, exist_ok=True)
-
-    df = pd.read_csv(args.data)
-    if args.target not in df.columns:
-        raise ValueError(f"Target '{args.target}' not found in columns")
-
-    # Create buckets in pandas first and then convert to H2OFrames
-    buckets = make_buckets(df, args.target, args)
-
-    h2o.init()
-
+    print("WARNING: true critical_temp routes every row; metrics are diagnostic only.")
+    print(f"Bucket boundaries learned from training targets: {bounds}")
+    owned_cluster = init_h2o(args.max_mem_size)
     try:
         rows = []
-        for name, bucket_df in buckets.items():
-            if len(bucket_df) < 100:
-                print(
-                    f"[WARN] Bucket '{name}' only has {len(bucket_df)} rows; "
-                    "metrics may be noisy."
+        for name in ("low", "medium", "high"):
+            train = to_h2o_frame(train_buckets[name], args.target)
+            validation = to_h2o_frame(validation_buckets[name], args.target)
+            test = to_h2o_frame(test_buckets[name], args.target)
+            features = [column for column in train.columns if column != args.target]
+            model_kwargs = dict(
+                ntrees=args.ntrees,
+                max_depth=args.max_depth,
+                learn_rate=args.learn_rate,
+                sample_rate=args.sample_rate,
+                col_sample_rate=args.col_sample_rate,
+                min_rows=args.min_rows,
+                seed=args.seed,
+            )
+            if args.early_stopping:
+                model_kwargs.update(
+                    stopping_rounds=args.stopping_rounds,
+                    stopping_tolerance=args.stopping_tolerance,
+                    stopping_metric=args.stopping_metric,
                 )
-
-            hf = h2o.H2OFrame(bucket_df)
-            hf[args.target] = hf[args.target].asnumeric()
-
-            print(
-                f"\n[INFO] Training bucket '{name}' (n={hf.nrows}, "
-                f"Tc range {bucket_df[args.target].min():.3f}.."
-                f"{bucket_df[args.target].max():.3f})"
+            model = H2OGradientBoostingEstimator(**model_kwargs)
+            model.train(
+                x=features,
+                y=args.target,
+                training_frame=train,
+                validation_frame=validation,
             )
-            model, metrics = train_eval_gbm(hf, args.target, args)
-
-            model_path = h2o.save_model(
-                model=model,
-                path=str(args.outdir),
-                force=True,
+            valid_perf = model.model_performance(validation)
+            test_perf = model.model_performance(test)
+            rows.append(
+                {
+                    "bucket": name,
+                    "train_rows": train.nrows,
+                    "validation_rows": validation.nrows,
+                    "test_rows": test.nrows,
+                    "validation_rmse": valid_perf.rmse(),
+                    "validation_mae": valid_perf.mae(),
+                    "diagnostic_test_rmse": test_perf.rmse(),
+                    "diagnostic_test_mae": test_perf.mae(),
+                    "target_routed": True,
+                    "deployable": False,
+                }
             )
-            print(f"[INFO] Saved model: {model_path}")
+            h2o.save_model(model, path=str(args.output_dir), force=True)
 
-            rows.append({
-                "bucket": name,
-                "n_rows": metrics.n_rows,
-                "tc_min": metrics.tc_min,
-                "tc_mean": metrics.tc_mean,
-                "tc_max": metrics.tc_max,
-                "train_RMSE": metrics.train_rmse,
-                "valid_RMSE": metrics.valid_rmse,
-                "test_RMSE": metrics.test_rmse,
-                "train_MAE": metrics.train_mae,
-                "valid_MAE": metrics.valid_mae,
-                "test_MAE": metrics.test_mae,
-            })
-
-        summary = pd.DataFrame(rows).sort_values("bucket")
-        print("\n===== Summary (GBM by Tc bucket) =====")
+        summary = pd.DataFrame(rows)
+        summary.to_csv(args.output_dir / "target_conditioned_bucket_metrics.csv", index=False)
+        metadata = {
+            "status": "target-conditioned diagnostic; not deployable",
+            "seed": args.seed,
+            "split_strategy": "material-formula group split",
+            "bucket_mode": args.bucket_mode,
+            "bucket_bounds_learned_from_training_targets": list(bounds),
+            "model_params": {
+                "ntrees": args.ntrees,
+                "max_depth": args.max_depth,
+                "learn_rate": args.learn_rate,
+                "sample_rate": args.sample_rate,
+                "col_sample_rate": args.col_sample_rate,
+                "min_rows": args.min_rows,
+                "early_stopping": args.early_stopping,
+                "stopping_rounds": args.stopping_rounds,
+                "stopping_tolerance": args.stopping_tolerance,
+                "stopping_metric": args.stopping_metric,
+            },
+            "rows": {
+                "train": len(splits.train),
+                "validation": len(splits.validation),
+                "test": len(splits.test),
+            },
+        }
+        (args.output_dir / "run_metadata.json").write_text(
+            json.dumps(metadata, indent=2) + "\n"
+        )
+        (args.output_dir / "README.txt").write_text(
+            "These models are target-conditioned diagnostics. The true critical_temp "
+            "selects a bucket, so their metrics are not end-to-end predictive performance.\n"
+            f"Boundaries learned from the training split: {bounds}\n"
+        )
         print(summary.to_string(index=False))
-
-        out_csv = args.outdir / "gbm_tc_bucket_summary.csv"
-        summary.to_csv(out_csv, index=False)
-        print(f"\n[INFO] Saved summary CSV: {out_csv}")
     finally:
-        h2o.shutdown(prompt=False)
+        shutdown_h2o_if_owned(owned_cluster, args.keep_h2o_cluster)
 
 
 if __name__ == "__main__":

@@ -21,12 +21,10 @@ if ! python3 -m venv --help &> /dev/null; then
     exit 1
 fi
 
-# Make sure Java is available for H2O
+# Java is needed only for the H2O-based Part 3 scripts.
 if ! command -v java &> /dev/null; then
-    echo "Error: Java is not installed or not on PATH."
-    echo "H2O requires Java. Install OpenJDK with your system or environment manager."
-    echo "For Conda environments, for example: conda install -c conda-forge openjdk"
-    exit 1
+    echo "Warning: Java is not installed or not on PATH."
+    echo "Parts 1 and 2 will work, but H2O-based Part 3 scripts require a compatible Java runtime."
 fi
 
 # Create virtual environment if it doesn't exist
