@@ -1,5 +1,6 @@
 # Top-level versions used for the September 2026 smoke-test environment.
 # These are environment pins, not a claim that every full experiment was rerun.
+# Python 3.12+ is required because xgboost==3.4.1 declares Python >=3.12.
 numpy==2.3.5
 scipy==1.16.3
 pandas==2.3.3

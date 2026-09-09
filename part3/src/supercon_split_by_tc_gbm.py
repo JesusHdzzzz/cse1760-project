@@ -10,7 +10,7 @@ import h2o
 import pandas as pd
 from h2o.estimators import H2OGradientBoostingEstimator
 
-from h2o_utils import init_h2o, shutdown_h2o_if_owned
+from h2o_utils import init_h2o, save_h2o_model, shutdown_h2o_if_owned
 from supercon_utils import load_supercon_pair, material_group_split
 
 PART3_DIR = Path(__file__).resolve().parent.parent
@@ -108,6 +108,7 @@ def main() -> None:
     owned_cluster = init_h2o(args.max_mem_size)
     try:
         rows = []
+        saved_models = {}
         for name in ("low", "medium", "high"):
             train = to_h2o_frame(train_buckets[name], args.target)
             validation = to_h2o_frame(validation_buckets[name], args.target)
@@ -151,7 +152,13 @@ def main() -> None:
                     "deployable": False,
                 }
             )
-            h2o.save_model(model, path=str(args.output_dir), force=True)
+            model_path = save_h2o_model(
+                model,
+                args.output_dir,
+                f"supercon_target_conditioned_{name}_model",
+            )
+            saved_models[name] = model_path.name
+            print(f"Saved {name} diagnostic model: {model_path}")
 
         summary = pd.DataFrame(rows)
         summary.to_csv(args.output_dir / "target_conditioned_bucket_metrics.csv", index=False)
@@ -173,6 +180,7 @@ def main() -> None:
                 "stopping_tolerance": args.stopping_tolerance,
                 "stopping_metric": args.stopping_metric,
             },
+            "saved_model_files": saved_models,
             "rows": {
                 "train": len(splits.train),
                 "validation": len(splits.validation),

@@ -22,6 +22,7 @@ from utils_mnist import load_mnist_mat, train_val_split
 
 PCA_VARIANCE = 0.80
 TREE_COUNTS = [50, 100, 150, 200]
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 
 @dataclass(frozen=True)
@@ -51,6 +52,15 @@ def sha256(path: Path) -> str:
         for chunk in iter(lambda: handle.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def portable_data_path(path: Path, repository_root: Path = PROJECT_ROOT) -> str:
+    """Serialize repository data paths portably without leaking host directories."""
+    resolved = path.resolve()
+    try:
+        return resolved.relative_to(repository_root.resolve()).as_posix()
+    except ValueError:
+        return f"<external>/{resolved.name}"
 
 
 def build_pipeline(seed: int) -> Pipeline:
@@ -156,12 +166,12 @@ def run_experiment(
         confusion_matrix(y_test, y_pred),
         index=[f"true_{digit}" for digit in range(10)],
         columns=[f"pred_{digit}" for digit in range(10)],
-    ).to_csv(config.output_dir / "confusion_matrix.csv")
+    ).to_csv(config.output_dir / "test_confusion_matrix.csv")
 
     metadata = {
         "experiment": config.name,
         "status": "current after corrected digit-label mapping",
-        "data_path": str(config.data_path.resolve()),
+        "data_path": portable_data_path(config.data_path),
         "data_sha256": sha256(config.data_path),
         "data_shapes": {"train": list(X_all.shape), "test": list(X_test.shape)},
         "label_mapping": {"raw_10": 0, "raw_1_through_9": "unchanged"},

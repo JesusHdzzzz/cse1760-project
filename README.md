@@ -50,9 +50,11 @@ The stroke experiments compare a class-weighted scikit-learn random forest and
 an H2O GBM. Both use stratified holdouts. The random forest keeps preprocessing
 inside its cross-validation pipeline; the H2O GBM retains missing BMI values and
 learns native missing-value routing within each training fold. The random forest
-selects by cross-validation average precision; the H2O grid selects by H2O's
-cross-validation AUCPR. Test metrics are calculated only after model and threshold
-selection.
+selects by cross-validation average precision; the H2O GBM uses a seeded
+random-discrete search capped at 30 candidates by default and selects by H2O's
+cross-validation AUCPR. Only the selected configuration is retrained with
+out-of-fold predictions retained for F2 threshold selection. Test metrics are
+calculated only after model and threshold selection.
 
 The SuperCon GBM uses normalized elemental-composition groups from the
 row-aligned `unique_m.csv` file to prevent reordered or proportionally scaled
@@ -65,14 +67,18 @@ critical temperature to route rows and is not a deployable predictor.
 
 ## Setup
 
-The smoke-tested environment used Python 3.13.11 and the package versions in
-`requirements.txt`. Python 3.10 or newer is recommended; only the listed Python
-3.13 environment has been checked in this revision.
+Python 3.12 or newer is recommended; this revision was smoke-tested with Python
+3.13.11 and the package versions in `requirements.txt`. The Python 3.12 floor is
+set by the pinned `xgboost==3.4.1` package metadata.
 
 ```bash
 ./setup.sh
 source .venv/bin/activate
 ```
+
+If an ignored local `.venv` has drifted, rebuild it from the repository pins
+with `python3 -m venv --clear .venv && ./setup.sh`. This replaces only the local
+virtual-environment contents; it does not alter tracked project files.
 
 Java is not needed for Parts 1 or 2. A Java runtime compatible with the pinned
 H2O version is required only for the H2O-based Part 3 scripts. Local cluster
@@ -119,7 +125,9 @@ python part3/src/supercon_split_by_tc_gbm.py
 ```
 
 Part 2 refuses to write into a nonempty output directory unless `--overwrite` is
-given explicitly. Use new output directories for portfolio reruns.
+given explicitly. Use fresh, versioned directories for all final portfolio reruns,
+for example `partN/outputs/portfolio-2026-09/<experiment>`. Parts 1 and 3 use
+predictable filenames and overwrite same-named artifacts if a directory is reused.
 
 ## Results
 

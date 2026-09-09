@@ -9,7 +9,7 @@ import h2o
 import pandas as pd
 from h2o.estimators import H2OGradientBoostingEstimator
 
-from h2o_utils import init_h2o, shutdown_h2o_if_owned
+from h2o_utils import init_h2o, save_h2o_model, shutdown_h2o_if_owned
 from supercon_utils import load_supercon_pair, material_group_split
 
 PART3_DIR = Path(__file__).resolve().parent.parent
@@ -165,7 +165,9 @@ def main() -> None:
             )
 
         selection = pd.DataFrame(candidate_rows).sort_values("validation_rmse")
-        selection.to_csv(args.output_dir / "model_selection.csv", index=False)
+        selection.to_csv(
+            args.output_dir / "validation_model_selection.csv", index=False
+        )
         selected_name = selection.iloc[0]["name"]
         selected_config = next(config for config in configs if config["name"] == selected_name)
 
@@ -183,8 +185,8 @@ def main() -> None:
         # The unfiltered test split is evaluated once after candidate selection.
         test_h2o = to_h2o_frame(splits.test, args.target)
         test_performance = final_model.model_performance(test_h2o)
-        model_path = h2o.save_model(
-            final_model, path=str(args.output_dir), force=True
+        model_path = save_h2o_model(
+            final_model, args.output_dir, "supercon_gbm_model"
         )
         metadata = {
             "status": (
@@ -214,7 +216,7 @@ def main() -> None:
             "selected_config": selected_config,
             "final_test_rmse": float(test_performance.rmse()),
             "final_test_mae": float(test_performance.mae()),
-            "saved_model": model_path,
+            "saved_model_file": model_path.name,
         }
         (args.output_dir / "run_metadata.json").write_text(
             json.dumps(metadata, indent=2) + "\n"
@@ -222,6 +224,7 @@ def main() -> None:
         print(f"Selected configuration: {selected_name}")
         print(f"Final test RMSE: {metadata['final_test_rmse']:.4f}")
         print(f"Final test MAE: {metadata['final_test_mae']:.4f}")
+        print(f"Saved model: {model_path}")
     finally:
         shutdown_h2o_if_owned(owned_cluster, args.keep_h2o_cluster)
 

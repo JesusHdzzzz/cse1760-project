@@ -36,10 +36,12 @@ The random forest places median/mode imputation and one-hot encoding inside a
 scikit-learn pipeline, including inside five-fold CV. The H2O experiment leaves
 BMI values missing and uses H2O GBM's native missing-value split routing, so each
 cross-validation model learns NA routing only from its fold-training rows. Its
-grid uses stratified five-fold CV and chooses an F2 threshold from out-of-fold
-training predictions. The random forest selects by average precision; the H2O
-grid selects by H2O AUCPR. Reported sklearn curve summaries use average
-precision, and the two names are not used interchangeably.
+seeded random-discrete search evaluates at most 30 candidates by default with
+stratified five-fold CV. It selects by H2O AUCPR, then retrains only the selected
+configuration with cross-validation predictions retained and chooses an F2
+threshold from those out-of-fold training predictions. The random forest selects
+by average precision. Reported sklearn curve summaries use average precision,
+and the two names are not used interchangeably.
 The test set is used only for final evaluation and plots.
 
 ## SuperCon Methodology
@@ -78,6 +80,6 @@ is for educational use and should be credited to its author.
 Current Part 3 experiments require reruns after the methodology changes. No
 historical metric is presented as a current estimate.
 
-The H2O stroke Cartesian grid contains 2,430 configurations before CV folds and
-is the most expensive workflow in the repository. It is intentionally not a
-smoke test.
+The H2O stroke candidate space contains 2,430 configurations, but the seeded
+random-discrete search is capped by `--max-models` (default 30). The bounded
+search is intentionally not a smoke test.

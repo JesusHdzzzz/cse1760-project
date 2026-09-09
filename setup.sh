@@ -13,6 +13,12 @@ if ! command -v python3 &> /dev/null; then
     exit 1
 fi
 
+if ! python3 -c 'import sys; raise SystemExit(sys.version_info < (3, 12))'; then
+    echo "Error: Python 3.12 or newer is required by the pinned dependencies."
+    echo "Found: $(python3 --version 2>&1)"
+    exit 1
+fi
+
 # Make sure Python venv support is available
 if ! python3 -m venv --help &> /dev/null; then
     echo "Error: python3 venv support is not installed."

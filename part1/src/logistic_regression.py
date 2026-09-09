@@ -117,7 +117,7 @@ def main() -> None:
     ax.grid(alpha=0.3)
     ax.legend()
     fig.tight_layout()
-    fig.savefig(args.output_dir / "model_selection_error.png", dpi=300)
+    fig.savefig(args.output_dir / "training_validation_error_by_c.png", dpi=300)
     if args.show:
         plt.show()
     plt.close(fig)

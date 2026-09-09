@@ -35,6 +35,13 @@ def plot_target_distribution(
     """Save target histogram/boxplot figures and return IQR outliers."""
     if target_col not in df.columns:
         raise ValueError(f"Target column not found: {target_col}")
+    prefix_path = Path(save_prefix)
+    if (
+        not save_prefix
+        or prefix_path.name != save_prefix
+        or save_prefix in {".", ".."}
+    ):
+        raise ValueError("--prefix must be a single nonempty filename component")
 
     output_dir.mkdir(parents=True, exist_ok=True)
     y = df[target_col]

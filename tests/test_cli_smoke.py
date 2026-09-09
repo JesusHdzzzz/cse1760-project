@@ -20,10 +20,10 @@ SCRIPTS = [
 
 
 @pytest.mark.parametrize("script", SCRIPTS)
-def test_cli_help_does_not_run_experiment(script):
+def test_cli_help_does_not_run_experiment_from_another_directory(script, tmp_path):
     result = subprocess.run(
         [sys.executable, str(ROOT / script), "--help"],
-        cwd=ROOT,
+        cwd=tmp_path,
         capture_output=True,
         text=True,
         timeout=30,
@@ -31,6 +31,20 @@ def test_cli_help_does_not_run_experiment(script):
     )
     assert result.returncode == 0, result.stderr
     assert "usage:" in result.stdout.lower()
+
+
+def test_feature_default_data_path_is_independent_of_working_directory(tmp_path):
+    result = subprocess.run(
+        [sys.executable, str(ROOT / "part1/src/feature.py")],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        timeout=30,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
+    assert "train_fea1 shape" in result.stdout
+    assert list(tmp_path.iterdir()) == []
 
 
 def test_all_executable_scripts_have_main_guards():

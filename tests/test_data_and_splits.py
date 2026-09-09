@@ -9,7 +9,10 @@ from stroke_utils import impute_bmi_from_training
 from stroke_random_forest import build_pipeline
 from stroke_h2o_gbm import (
     BMI_MISSING_VALUE_POLICY,
-    select_model_and_f2_threshold,
+    DEFAULT_MAX_MODELS,
+    gbm_estimator,
+    random_search_criteria,
+    select_f2_threshold_from_oof,
     split_raw_stroke_data,
 )
 from supercon_utils import (
@@ -19,6 +22,7 @@ from supercon_utils import (
 )
 from utils_mnist import convert_mnist_labels, load_mnist_mat
 from xgb_experiment import build_pipeline as build_xgb_pipeline
+from xgb_experiment import portable_data_path
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -79,7 +83,7 @@ def test_h2o_outer_split_preserves_raw_missing_bmi_values():
     assert BMI_MISSING_VALUE_POLICY == "native H2O GBM missing-value handling"
 
 
-def test_h2o_model_and_threshold_selection_uses_training_oof_data_only():
+def test_h2o_threshold_selection_uses_training_oof_data_only():
     class FrameResult:
         def __init__(self, frame):
             self.frame = frame
@@ -91,24 +95,39 @@ def test_h2o_model_and_threshold_selection_uses_training_oof_data_only():
         def cross_validation_holdout_predictions(self):
             return FrameResult(pd.DataFrame({"p1": [0.1, 0.8, 0.2, 0.9]}))
 
-    class SortedGrid:
-        models = [Model()]
-
-    class Grid:
-        def get_grid(self, sort_by, decreasing):
-            assert sort_by == "aucpr"
-            assert decreasing is True
-            return SortedGrid()
-
     train = {"stroke": FrameResult(pd.DataFrame({"stroke": [0, 1, 0, 1]}))}
 
-    model, cv_f2, threshold = select_model_and_f2_threshold(
-        Grid(), train, "stroke"
+    cv_f2, threshold = select_f2_threshold_from_oof(
+        Model(), train, "stroke"
     )
 
-    assert isinstance(model, Model)
     assert cv_f2 == 1.0
     assert 0.2 < threshold <= 0.8
+
+
+def test_h2o_search_is_seeded_bounded_and_does_not_retain_candidate_oof():
+    assert DEFAULT_MAX_MODELS == 30
+    assert random_search_criteria(seed=17, max_models=30) == {
+        "strategy": "RandomDiscrete",
+        "max_models": 30,
+        "seed": 17,
+    }
+    search_model = gbm_estimator(17, 5, False)
+    selected_model = gbm_estimator(17, 5, True)
+    assert search_model.keep_cross_validation_models is False
+    assert search_model.keep_cross_validation_predictions is False
+    assert selected_model.keep_cross_validation_models is False
+    assert selected_model.keep_cross_validation_predictions is True
+
+
+def test_part2_metadata_path_is_repository_relative():
+    path = ROOT / "part2" / "data" / "MNIST.mat"
+    assert portable_data_path(path) == "part2/data/MNIST.mat"
+
+
+def test_part2_metadata_path_has_portable_external_fallback(tmp_path):
+    path = tmp_path / "private-host-directory" / "MNIST.mat"
+    assert portable_data_path(path) == "<external>/MNIST.mat"
 
 
 def test_random_forest_pipeline_fits_imputer_on_training_rows():
